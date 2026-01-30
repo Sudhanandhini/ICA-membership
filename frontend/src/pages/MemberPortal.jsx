@@ -1,0 +1,228 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Home } from 'lucide-react';
+import MemberSearch from '../components/MemberSearch';
+import MemberDetails from '../components/MemberDetails';
+import PaymentCalculation from '../components/PaymentCalculation';
+import PaymentSuccess from '../components/PaymentSuccess';
+import Loading from '../components/Loading';
+import { paymentAPI, handleRazorpayPayment } from '../services/api';
+import { loadRazorpayScript } from '../utils/helpers';
+
+const MemberPortal = () => {
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [paymentCalculation, setPaymentCalculation] = useState(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(null);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    loadRazorpayScript();
+  }, []);
+
+  const handleMemberSelect = (member) => {
+    setSelectedMember(member);
+    setPaymentCalculation(null);
+    setPaymentSuccess(null);
+    setError('');
+  };
+
+  const handleProceedToPayment = async (calculation) => {
+    setPaymentCalculation(calculation);
+    await initiatePayment(calculation);
+  };
+
+  const initiatePayment = async (calculation) => {
+    if (!selectedMember || !calculation?.payableYears?.length) {
+      setError('Invalid payment data');
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    setError('');
+
+    try {
+      if (!window.Razorpay) {
+        const loaded = await loadRazorpayScript();
+        if (!loaded) {
+          throw new Error('Failed to load Razorpay. Please refresh the page.');
+        }
+      }
+
+      const orderData = await paymentAPI.initiate({
+        memberId: selectedMember.id,
+        payableYears: calculation.payableYears,
+        totalAmount: calculation.totalAmount,
+      });
+
+      handleRazorpayPayment(
+        orderData,
+        async (response) => {
+          await verifyPayment(response);
+        },
+        (error) => {
+          setError(error.message);
+          setIsProcessingPayment(false);
+        }
+      );
+    } catch (err) {
+      setError(err.message || 'Failed to initiate payment');
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const verifyPayment = async (razorpayResponse) => {
+    try {
+      const verificationData = await paymentAPI.verify({
+        razorpay_order_id: razorpayResponse.razorpay_order_id,
+        razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+        razorpay_signature: razorpayResponse.razorpay_signature,
+      });
+
+      setPaymentSuccess(verificationData);
+      setIsProcessingPayment(false);
+    } catch (err) {
+      setError(err.message || 'Payment verification failed');
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handleReset = () => {
+    setSelectedMember(null);
+    setPaymentCalculation(null);
+    setPaymentSuccess(null);
+    setError('');
+    setIsProcessingPayment(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header with Home Button */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center space-x-2 text-gray-600 hover:text-primary-600 transition-colors"
+            >
+              <Home className="w-5 h-5" />
+              <span className="text-sm font-medium">Back to Home</span>
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Member Portal</h1>
+              <p className="text-xs text-gray-500">Membership Fee: ₹1,200/year</p>
+            </div>
+          </div>
+        </div>
+      </header>
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-700">{error}</p>
+            <button
+              onClick={() => setError('')}
+              className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {isProcessingPayment && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-xl p-8 max-w-sm mx-4">
+              <Loading message="Processing payment..." />
+              <p className="text-sm text-gray-600 text-center mt-4">
+                Please complete the payment in the Razorpay window
+              </p>
+            </div>
+          </div>
+        )}
+
+        {paymentSuccess ? (
+          <PaymentSuccess paymentData={paymentSuccess} onReset={handleReset} />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <MemberSearch onMemberSelect={handleMemberSelect} />
+              
+              {selectedMember && (
+                <MemberDetails
+                  member={selectedMember}
+                  onClose={() => setSelectedMember(null)}
+                />
+              )}
+            </div>
+
+            {selectedMember && (
+              <div>
+                <PaymentCalculation
+                  member={selectedMember}
+                  onProceedToPayment={handleProceedToPayment}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {!selectedMember && !paymentSuccess && (
+          <div className="mt-8 card max-w-3xl mx-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              How to Use This System
+            </h3>
+            <ol className="space-y-3 text-sm text-gray-600">
+              <li className="flex items-start space-x-2">
+                <span className="flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full font-semibold text-xs flex-shrink-0">
+                  1
+                </span>
+                <span>Search for a member by entering their name in the search field</span>
+              </li>
+              <li className="flex items-start space-x-2">
+                <span className="flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full font-semibold text-xs flex-shrink-0">
+                  2
+                </span>
+                <span>Select the member from the search results to view their details</span>
+              </li>
+              <li className="flex items-start space-x-2">
+                <span className="flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full font-semibold text-xs flex-shrink-0">
+                  3
+                </span>
+                <span>The system will automatically calculate payable years (₹1,200 per year)</span>
+              </li>
+              <li className="flex items-start space-x-2">
+                <span className="flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full font-semibold text-xs flex-shrink-0">
+                  4
+                </span>
+                <span>Review the calculation and proceed to payment via Razorpay</span>
+              </li>
+              <li className="flex items-start space-x-2">
+                <span className="flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full font-semibold text-xs flex-shrink-0">
+                  5
+                </span>
+                <span>After successful payment, membership is activated immediately</span>
+              </li>
+            </ol>
+            
+            <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                <span className="font-semibold">Important:</span> You cannot skip membership years. 
+                If you have pending years, you must pay for all years sequentially.
+              </p>
+            </div>
+          </div>
+        )}
+      </main>
+
+      <footer className="mt-12 py-6 border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-600">
+          <p>© 2026 Sunsys Technologies Pvt Ltd. All rights reserved.</p>
+          <p className="mt-1">Secure payment processing powered by Razorpay</p>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default MemberPortal;
