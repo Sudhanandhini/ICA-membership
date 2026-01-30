@@ -11,44 +11,23 @@ router.post('/search', async (req, res) => {
   try {
     const { name } = req.body;
     
-    if (!name || name.trim().length < 2) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please enter at least 2 characters to search'
-      });
+    if (!name || name.trim().length === 0) {
+      return res.json({ success: true, members: [] });
     }
+
+    const [members] = await db.query(`
+      SELECT * 
+      FROM members_with_payments
+      WHERE name LIKE ? 
+      AND status = 'active'
+      ORDER BY name
+      LIMIT 10
+    `, [`%${name}%`]);
     
-    const searchTerm = `%${name.trim()}%`;
-    const query = `
-      SELECT id, name, phone, email, folio_number, created_at
-      FROM members
-      WHERE name LIKE ?
-      ORDER BY name ASC
-      LIMIT 20
-    `;
-    
-    const [members] = await db.query(query, [searchTerm]);
-    
-    if (members.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No members found matching your search'
-      });
-    }
-    
-    res.json({
-      success: true,
-      count: members.length,
-      members
-    });
-    
+    res.json({ success: true, members });
   } catch (error) {
     console.error('Member search error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to search members',
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -58,35 +37,23 @@ router.post('/search', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    const query = `
-      SELECT id, name, phone, email, folio_number, created_at
-      FROM members
+    const [members] = await db.query(`
+      SELECT * 
+      FROM members_with_payments
       WHERE id = ?
-    `;
-    
-    const [members] = await db.query(query, [id]);
+    `, [req.params.id]);
     
     if (members.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Member not found'
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Member not found' 
       });
     }
     
-    res.json({
-      success: true,
-      member: members[0]
-    });
-    
+    res.json({ success: true, member: members[0] });
   } catch (error) {
-    console.error('Member fetch error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch member details',
-      error: error.message
-    });
+    console.error('Get member error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -98,13 +65,11 @@ router.get('/folio/:folioNumber', async (req, res) => {
   try {
     const { folioNumber } = req.params;
     
-    const query = `
-      SELECT id, name, phone, email, folio_number, created_at
-      FROM members
+    const [members] = await db.query(`
+      SELECT * 
+      FROM members_with_payments
       WHERE folio_number = ?
-    `;
-    
-    const [members] = await db.query(query, [folioNumber]);
+    `, [folioNumber]);
     
     if (members.length === 0) {
       return res.status(404).json({
@@ -134,19 +99,20 @@ router.get('/folio/:folioNumber', async (req, res) => {
  */
 router.post('/create', async (req, res) => {
   try {
-    const { name, phone, email, folio_number } = req.body;
+    const { name, phone, email, folio_number, gender, address, pin_code, state, chapter } = req.body;
     
-    // Validation
-    if (!name || !phone || !email || !folio_number) {
+    if (!name || !email || !folio_number) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required'
+        message: 'Name, email, and folio number are required'
       });
     }
     
-    // Check if folio number already exists
-    const checkQuery = 'SELECT id FROM members WHERE folio_number = ?';
-    const [existing] = await db.query(checkQuery, [folio_number]);
+    // Check if folio number exists
+    const [existing] = await db.query(
+      'SELECT id FROM members_with_payments WHERE folio_number = ?',
+      [folio_number]
+    );
     
     if (existing.length > 0) {
       return res.status(400).json({
@@ -155,12 +121,19 @@ router.post('/create', async (req, res) => {
       });
     }
     
-    const insertQuery = `
-      INSERT INTO members (name, phone, email, folio_number)
-      VALUES (?, ?, ?, ?)
-    `;
-    
-    const [result] = await db.query(insertQuery, [name, phone, email, folio_number]);
+    const [result] = await db.query(`
+      INSERT INTO members_with_payments (
+        folio_number, gender, name, email, phone, address, 
+        pin_code, state, chapter, member_class, status,
+        period_21, period_22, period_23, period_24,
+        period_25, period_26, period_27, period_28
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'New', 'active',
+        '2021-2022', '2022-2023', '2023-2024', '2024-2025',
+        '2025-2026', '2026-2027', '2027-2028', '2028-2029')
+    `, [
+      folio_number, gender || 'Male', name, email, phone || '0000000000',
+      address, pin_code, state, chapter
+    ]);
     
     res.status(201).json({
       success: true,

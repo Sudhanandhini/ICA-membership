@@ -13,6 +13,7 @@ const MemberPortal = () => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [paymentCalculation, setPaymentCalculation] = useState(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(null);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -21,6 +22,13 @@ const MemberPortal = () => {
     loadRazorpayScript();
   }, []);
 
+  // Calculate payment when member is selected
+  useEffect(() => {
+    if (selectedMember) {
+      calculatePayment();
+    }
+  }, [selectedMember]);
+
   const handleMemberSelect = (member) => {
     setSelectedMember(member);
     setPaymentCalculation(null);
@@ -28,13 +36,61 @@ const MemberPortal = () => {
     setError('');
   };
 
-  const handleProceedToPayment = async (calculation) => {
-    setPaymentCalculation(calculation);
-    await initiatePayment(calculation);
+  const calculatePayment = async () => {
+    if (!selectedMember || !selectedMember.id) {
+      setError('No member selected');
+      return;
+    }
+
+    setIsCalculating(true);
+    setError('');
+
+    try {
+      console.log('Calculating payment for member:', selectedMember);
+
+      const response = await fetch('http://localhost:5000/api/payments/calculate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberId: selectedMember.id
+        }),
+      });
+
+      console.log('Response status:', response.status);
+
+      const data = await response.json();
+      console.log('Response data:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || `Server error: ${response.status}`);
+      }
+
+      if (data.success && data.calculation) {
+        setPaymentCalculation(data.calculation);
+      } else {
+        throw new Error(data.error || 'Calculation failed');
+      }
+    } catch (err) {
+      console.error('Payment calculation error:', err);
+      setError(`Failed to calculate payment: ${err.message}`);
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
+  const handleProceedToPayment = async () => {
+    if (!paymentCalculation) {
+      setError('No payment calculation available');
+      return;
+    }
+
+    await initiatePayment(paymentCalculation);
   };
 
   const initiatePayment = async (calculation) => {
-    if (!selectedMember || !calculation?.payableYears?.length) {
+    if (!selectedMember || !calculation?.unpaidPeriods?.length) {
       setError('Invalid payment data');
       return;
     }
@@ -50,10 +106,16 @@ const MemberPortal = () => {
         }
       }
 
+      // Prepare payment data
+      const payableYears = calculation.unpaidPeriods.map(period => ({
+        year: period.period,
+        amount: period.amount
+      }));
+
       const orderData = await paymentAPI.initiate({
         memberId: selectedMember.id,
-        payableYears: calculation.payableYears,
-        totalAmount: calculation.totalAmount,
+        payableYears: payableYears,
+        totalAmount: calculation.totalDue,
       });
 
       handleRazorpayPayment(
@@ -94,6 +156,7 @@ const MemberPortal = () => {
     setPaymentSuccess(null);
     setError('');
     setIsProcessingPayment(false);
+    setIsCalculating(false);
   };
 
   return (
@@ -158,10 +221,28 @@ const MemberPortal = () => {
 
             {selectedMember && (
               <div>
-                <PaymentCalculation
-                  member={selectedMember}
-                  onProceedToPayment={handleProceedToPayment}
-                />
+                {isCalculating ? (
+                  <div className="card">
+                    <Loading message="Calculating payment..." />
+                  </div>
+                ) : paymentCalculation ? (
+                  <PaymentCalculation
+                    calculation={paymentCalculation}
+                    onProceedToPayment={handleProceedToPayment}
+                  />
+                ) : error ? (
+                  <div className="card">
+                    <div className="text-center py-8">
+                      <p className="text-red-600">Failed to load payment details</p>
+                      <button
+                        onClick={calculatePayment}
+                        className="mt-4 btn-primary"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>

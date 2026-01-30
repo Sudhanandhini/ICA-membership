@@ -142,97 +142,82 @@ export const importMembers = async (excelData) => {
   for (const row of excelData) {
     try {
       results.total++;
-
+      
       const memberData = parseMemberData(row);
-
+      
       if (!memberData.folioNumber || !memberData.name || !memberData.email) {
         results.errors++;
         results.errorDetails.push(`Row ${results.total}: Missing required fields`);
         continue;
       }
 
-      let memberId;
+      // Parse payment data
+      const payments = parsePaymentData(row);
 
       // Check if member exists
       const [existing] = await db.query(
-        'SELECT id FROM members WHERE folio_number = ?',
+        'SELECT id FROM members_with_payments WHERE folio_number = ?',
         [memberData.folioNumber]
       );
 
       if (existing.length > 0) {
-        // Update Member
-        memberId = existing[0].id;
-
+        // UPDATE existing member with all data
         await db.query(`
-          UPDATE members 
-          SET gender=?, name=?, email=?, phone=?, address=?, 
-              pin_code=?, state=?, chapter=?, status='active', updated_at=NOW()
-          WHERE id=?
+          UPDATE members_with_payments SET
+            gender=?, name=?, email=?, phone=?, address=?, pin_code=?, state=?, chapter=?,
+            period_21=?, amount_21=?, payment_id_21=?, payment_date_21=?,
+            period_22=?, amount_22=?, payment_id_22=?, payment_date_22=?,
+            period_23=?, amount_23=?, payment_id_23=?, payment_date_23=?,
+            period_24=?, amount_24=?, payment_id_24=?, payment_date_24=?,
+            period_25=?, amount_25=?, payment_id_25=?, payment_date_25=?,
+            period_26=?, amount_26=?, payment_id_26=?, payment_date_26=?,
+            period_27=?, amount_27=?, payment_id_27=?, payment_date_27=?,
+            period_28=?, amount_28=?, payment_id_28=?, payment_date_28=?,
+            status='active', updated_at=NOW()
+          WHERE folio_number=?
         `, [
           memberData.gender, memberData.name, memberData.email, memberData.phone,
-          memberData.address, memberData.pinCode, memberData.state, memberData.chapter, memberId
+          memberData.address, memberData.pinCode, memberData.state, memberData.chapter,
+          payments.period_21, payments.amount_21, payments.payment_id_21, payments.payment_date_21,
+          payments.period_22, payments.amount_22, payments.payment_id_22, payments.payment_date_22,
+          payments.period_23, payments.amount_23, payments.payment_id_23, payments.payment_date_23,
+          payments.period_24, payments.amount_24, payments.payment_id_24, payments.payment_date_24,
+          payments.period_25, payments.amount_25, payments.payment_id_25, payments.payment_date_25,
+          payments.period_26, payments.amount_26, payments.payment_id_26, payments.payment_date_26,
+          payments.period_27, payments.amount_27, payments.payment_id_27, payments.payment_date_27,
+          payments.period_28, payments.amount_28, payments.payment_id_28, payments.payment_date_28,
+          memberData.folioNumber
         ]);
-
+        
         results.updated++;
       } else {
-        // Insert New Member
-        const [insertResult] = await db.query(`
-          INSERT INTO members (folio_number, gender, name, email, phone, address, pin_code, state, chapter, member_class, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'New', 'active')
+        // INSERT new member with all data
+        await db.query(`
+          INSERT INTO members_with_payments (
+            folio_number, gender, name, email, phone, address, pin_code, state, chapter, member_class, status,
+            period_21, amount_21, payment_id_21, payment_date_21,
+            period_22, amount_22, payment_id_22, payment_date_22,
+            period_23, amount_23, payment_id_23, payment_date_23,
+            period_24, amount_24, payment_id_24, payment_date_24,
+            period_25, amount_25, payment_id_25, payment_date_25,
+            period_26, amount_26, payment_id_26, payment_date_26,
+            period_27, amount_27, payment_id_27, payment_date_27,
+            period_28, amount_28, payment_id_28, payment_date_28
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'New', 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
           memberData.folioNumber, memberData.gender, memberData.name, memberData.email,
-          memberData.phone, memberData.address, memberData.pinCode, memberData.state, memberData.chapter
+          memberData.phone, memberData.address, memberData.pinCode, memberData.state, memberData.chapter,
+          payments.period_21, payments.amount_21, payments.payment_id_21, payments.payment_date_21,
+          payments.period_22, payments.amount_22, payments.payment_id_22, payments.payment_date_22,
+          payments.period_23, payments.amount_23, payments.payment_id_23, payments.payment_date_23,
+          payments.period_24, payments.amount_24, payments.payment_id_24, payments.payment_date_24,
+          payments.period_25, payments.amount_25, payments.payment_id_25, payments.payment_date_25,
+          payments.period_26, payments.amount_26, payments.payment_id_26, payments.payment_date_26,
+          payments.period_27, payments.amount_27, payments.payment_id_27, payments.payment_date_27,
+          payments.period_28, payments.amount_28, payments.payment_id_28, payments.payment_date_28
         ]);
-
-        memberId = insertResult.insertId;
+        
         results.added++;
-      }
-
-      // PAYMENT DATA
-      const payments = parsePaymentData(row);
-
-      // Check if payment record exists
-      const [existingPayment] = await db.query(
-        'SELECT id FROM payments WHERE member_id=?',
-        [memberId]
-      );
-
-      const paymentFields = [];
-      const paymentValues = [];
-
-      for (let yr = 21; yr <= 28; yr++) {
-        paymentFields.push(
-          `period_${yr}`, `amount_${yr}`, `payment_id_${yr}`, `payment_date_${yr}`
-        );
-        paymentValues.push(
-          payments[`period_${yr}`],
-          payments[`amount_${yr}`],
-          payments[`payment_id_${yr}`],
-          payments[`payment_date_${yr}`]
-        );
-      }
-
-      if (existingPayment.length > 0) {
-        // UPDATE PAYMENTS
-        const updateFields = paymentFields.map(f => `${f}=?`).join(", ");
-
-        await db.query(`
-          UPDATE payments SET 
-          folio_number=?, ${updateFields}, updated_at=NOW()
-          WHERE member_id=?
-        `, [memberData.folioNumber, ...paymentValues, memberId]);
-
-      } else {
-        // INSERT PAYMENTS
-        await db.query(`
-          INSERT INTO payments (
-            member_id, folio_number,
-            ${paymentFields.join(", ")}
-          ) VALUES (
-            ?, ?, ${paymentFields.map(() => "?").join(", ")}
-          )
-        `, [memberId, memberData.folioNumber, ...paymentValues]);
-
         results.paymentsAdded++;
       }
 
