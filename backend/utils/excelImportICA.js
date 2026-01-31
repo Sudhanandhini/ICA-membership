@@ -1,9 +1,6 @@
 import XLSX from 'xlsx';
 import db from '../config/database.js';
 
-/* ---------------------------------------------------
-   1) READ EXCEL FILE
---------------------------------------------------- */
 export const parseExcelFile = (filePath) => {
   try {
     const workbook = XLSX.readFile(filePath);
@@ -14,6 +11,14 @@ export const parseExcelFile = (filePath) => {
       raw: false,
       defval: null
     });
+
+    // 🔍 DEBUG: Print ALL column names found
+    if (jsonData.length > 0) {
+      console.log('\n🔍 EXCEL COLUMNS FOUND:');
+      console.log(Object.keys(jsonData[0]));
+      console.log('\n🔍 FIRST ROW DATA:');
+      console.log(JSON.stringify(jsonData[0], null, 2));
+    }
 
     return {
       success: true,
@@ -28,31 +33,42 @@ export const parseExcelFile = (filePath) => {
   }
 };
 
-/* ---------------------------------------------------
-   2) FIXED AMOUNT PARSER — NO NaN, NO ERRORS
---------------------------------------------------- */
 const parseAmount = (value) => {
-  if (value === null || value === undefined) return null;
+  console.log('🔍 parseAmount input:', value, 'type:', typeof value);
+  
+  if (value === null || value === undefined || value === '') {
+    console.log('   → NULL (empty)');
+    return null;
+  }
 
-  let val = String(value).trim();
+  // Handle "New Member" or other text
+  if (typeof value === 'string' && isNaN(value.replace(/[,₹$]/g, ''))) {
+    console.log('   → NULL (not a number)');
+    return null;
+  }
 
-  val = val.replace(/,/g, ""); // remove commas
-
-  if (isNaN(val)) return null; // "New Member" → null
-
-  const num = Number(val);
-  return isNaN(num) ? null : num;
+  let str = String(value).trim().replace(/[,₹$]/g, '');
+  const num = parseFloat(str);
+  
+  if (isNaN(num) || num < 0) {
+    console.log('   → NULL (invalid number)');
+    return null;
+  }
+  
+  console.log('   → ', num);
+  return num;
 };
 
-/* ---------------------------------------------------
-   3) FIXED DATE PARSER — NO TIMEZONE SHIFT
---------------------------------------------------- */
 const parseExcelDate = (value) => {
   if (!value) return null;
 
   try {
-    // TEXT DATE (Ex: "24th Mar, 2022")
     if (typeof value === "string") {
+      // Handle "New Member" text
+      if (value.toLowerCase().includes('new member')) {
+        return null;
+      }
+
       const cleaned = value
         .replace(/(\d+)(st|nd|rd|th)/g, "$1")
         .replace(",", "")
@@ -61,15 +77,22 @@ const parseExcelDate = (value) => {
       const d = new Date(cleaned);
       if (isNaN(d.getTime())) return null;
 
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
     }
 
-    // NUMERIC DATE (Excel format)
     if (typeof value === "number") {
-      const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // 1899-12-30
+      const excelEpoch = new Date(Date.UTC(1899, 11, 30));
       const date = new Date(excelEpoch.getTime() + value * 86400000);
 
-      return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+
+      return `${year}-${month}-${day}`;
     }
 
     return null;
@@ -78,9 +101,6 @@ const parseExcelDate = (value) => {
   }
 };
 
-/* ---------------------------------------------------
-   4) MEMBER PARSER
---------------------------------------------------- */
 export const parseMemberData = (row) => ({
   folioNumber: row['Folio No.'] || row['Folio No'] || null,
   gender: row['gender'] || row['Gender'] || 'Male',
@@ -93,47 +113,81 @@ export const parseMemberData = (row) => ({
   chapter: row['SELECT CHAPTER'] || row['Chapter'] || null
 });
 
-/* ---------------------------------------------------
-   5) PAYMENT PARSER — FIXED AMOUNTS & DATES
---------------------------------------------------- */
 export const parsePaymentData = (row) => {
   const payments = {};
 
-  const getColumn = (patterns) => {
+  console.log('\n🔍 PARSING PAYMENT ROW:', row['Folio No.'] || row['Folio No']);
+
+  const getColumn = (patterns, year) => {
+    console.log(`  🔍 Looking for year ${year} in patterns:`, patterns);
     for (const key of patterns) {
-      if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+      if (row.hasOwnProperty(key) && row[key] !== null && row[key] !== undefined && row[key] !== '') {
+        console.log(`    ✅ FOUND "${key}" = ${row[key]}`);
         return row[key];
       }
     }
+    console.log(`    ❌ NOT FOUND`);
     return null;
   };
 
-  const amountKeys = year => [`Amount${year}`, `Amount ${year}`, `amount${year}`];
-  const idKeys = year => [
-    `Payment ID${year}`, `Payment ID ${year}`, `PaymentID${year}`, `payment_id_${year}`
+  // Try EVERY possible column name variation
+  const amountKeys = year => [
+    `Amount${year}`,           // Amount21
+    `Amount ${year}`,          // Amount 21
+    `amount${year}`,           // amount21
+    `amount_${year}`,          // amount_21
+    `AMOUNT${year}`,           // AMOUNT21
+    `Amount${year-2000}`,      // Amount1 (if year is 2021)
+    `Fee Amount${year}`,       // Fee Amount21
+    `Amount_${year}`,          // Amount_21
   ];
+
+  const idKeys = year => [
+    `Payment ID${year}`,       // Payment ID21
+    `Payment ID ${year}`,      // Payment ID 21
+    `PaymentID${year}`,        // PaymentID21
+    `payment_id_${year}`,      // payment_id_21
+    `payment_id${year}`,       // payment_id21
+    `Payment_ID${year}`,       // Payment_ID21
+  ];
+
   const dateKeys = year => [
-    `Date of Payment${year}`, `Date${year}`, `Payment Date${year}`, `payment_date_${year}`
+    `Date${year}`,             // Date21
+    `Date ${year}`,            // Date 21
+    `Date of Payment${year}`,  // Date of Payment21
+    `Payment Date${year}`,     // Payment Date21
+    `payment_date_${year}`,    // payment_date_21
+    `payment_date${year}`,     // payment_date21
+    `Date_${year}`,            // Date_21
   ];
 
   for (let yr = 21; yr <= 28; yr++) {
+    const fullYear = 2000 + yr;
     payments[`period_${yr}`] = `20${yr}-20${yr + 1}`;
-    payments[`amount_${yr}`] = parseAmount(getColumn(amountKeys(yr)));
-    payments[`payment_id_${yr}`] = getColumn(idKeys(yr));
-    payments[`payment_date_${yr}`] = parseExcelDate(getColumn(dateKeys(yr)));
+    
+    const amountValue = getColumn(amountKeys(yr), yr);
+    const paymentIdValue = getColumn(idKeys(yr), yr);
+    const dateValue = getColumn(dateKeys(yr), yr);
+    
+    payments[`amount_${yr}`] = parseAmount(amountValue);
+    payments[`payment_id_${yr}`] = paymentIdValue;
+    payments[`payment_date_${yr}`] = parseExcelDate(dateValue);
+    
+    console.log(`  Period ${yr} RESULT:`, {
+      amount: payments[`amount_${yr}`],
+      payment_id: payments[`payment_id_${yr}`],
+      date: payments[`payment_date_${yr}`]
+    });
   }
 
   return payments;
 };
 
-/* ---------------------------------------------------
-   6) IMPORT MEMBERS + PAYMENTS
---------------------------------------------------- */
 export const importMembers = async (excelData) => {
   const results = {
-    total: 0,
-    added: 0,
-    updated: 0,
+    totalRows: 0,
+    membersAdded: 0,
+    membersUpdated: 0,
     paymentsAdded: 0,
     errors: 0,
     errorDetails: []
@@ -141,27 +195,24 @@ export const importMembers = async (excelData) => {
 
   for (const row of excelData) {
     try {
-      results.total++;
+      results.totalRows++;
       
       const memberData = parseMemberData(row);
       
       if (!memberData.folioNumber || !memberData.name || !memberData.email) {
         results.errors++;
-        results.errorDetails.push(`Row ${results.total}: Missing required fields`);
+        results.errorDetails.push(`Row ${results.totalRows}: Missing folio/name/email`);
         continue;
       }
 
-      // Parse payment data
       const payments = parsePaymentData(row);
 
-      // Check if member exists
       const [existing] = await db.query(
         'SELECT id FROM members_with_payments WHERE folio_number = ?',
         [memberData.folioNumber]
       );
 
       if (existing.length > 0) {
-        // UPDATE existing member with all data
         await db.query(`
           UPDATE members_with_payments SET
             gender=?, name=?, email=?, phone=?, address=?, pin_code=?, state=?, chapter=?,
@@ -189,9 +240,8 @@ export const importMembers = async (excelData) => {
           memberData.folioNumber
         ]);
         
-        results.updated++;
+        results.membersUpdated++;
       } else {
-        // INSERT new member with all data
         await db.query(`
           INSERT INTO members_with_payments (
             folio_number, gender, name, email, phone, address, pin_code, state, chapter, member_class, status,
@@ -217,14 +267,20 @@ export const importMembers = async (excelData) => {
           payments.period_28, payments.amount_28, payments.payment_id_28, payments.payment_date_28
         ]);
         
-        results.added++;
-        results.paymentsAdded++;
+        results.membersAdded++;
+      }
+
+      // Count payments
+      for (let yr = 21; yr <= 28; yr++) {
+        if (payments[`payment_id_${yr}`] && payments[`amount_${yr}`]) {
+          results.paymentsAdded++;
+        }
       }
 
     } catch (error) {
       results.errors++;
-      results.errorDetails.push(`Row ${results.total}: ${error.message}`);
-      console.error(`Error importing row ${results.total}:`, error);
+      results.errorDetails.push(`Row ${results.totalRows}: ${error.message}`);
+      console.error(`❌ Error importing row ${results.totalRows}:`, error);
     }
   }
 

@@ -1,37 +1,49 @@
-import React, { useState } from 'react';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, Users, TrendingUp, Download, UserPlus, List, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home } from 'lucide-react';
+import { Home, Upload, UserPlus, Users, FileText, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import AddMemberForm from '../components/AddMemberForm';
 import MembersList from '../components/MembersList';
 import MonthlyPaymentReport from '../components/MonthlyPaymentReport';
 
 const AdminPanel = () => {
-  const [activeTab, setActiveTab] = useState('import');
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('view-members');
+  const [stats, setStats] = useState({
+    activeMembers: 0,
+    totalPayments: 0,
+    totalRevenue: 0
+  });
+
+  // Excel Import State
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
-  const [error, setError] = useState('');
-  const [stats, setStats] = useState(null);
-  const navigate = useNavigate();
+  const [uploadError, setUploadError] = useState('');
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-  // Fetch stats on component mount
-  React.useEffect(() => {
+  useEffect(() => {
     fetchStats();
   }, []);
 
   const fetchStats = async () => {
     try {
       const response = await axios.get(`${API_URL}/admin/stats`);
-      setStats(response.data.stats);
-    } catch (err) {
-      console.error('Failed to fetch stats:', err);
+      if (response.data.success) {
+        setStats(response.data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
     }
   };
 
+  const handleMemberAdded = () => {
+    fetchStats();
+    setActiveTab('view-members');
+  };
+
+  // Excel Import Functions
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -39,30 +51,29 @@ const AdminPanel = () => {
       const fileExt = '.' + file.name.split('.').pop().toLowerCase();
       
       if (!allowedTypes.includes(fileExt)) {
-        setError('Please select an Excel file (.xlsx, .xls, or .csv)');
+        setUploadError('Please select an Excel file (.xlsx, .xls, or .csv)');
         setSelectedFile(null);
         return;
       }
 
       setSelectedFile(file);
-      setError('');
+      setUploadError('');
       setUploadResult(null);
     }
   };
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setError('Please select a file first');
+      setUploadError('Please select a file first');
       return;
     }
 
     setIsUploading(true);
-    setError('');
+    setUploadError('');
     setUploadResult(null);
 
     const formData = new FormData();
     formData.append('file', selectedFile);
-    formData.append('importedBy', 'admin');
 
     try {
       const response = await axios.post(`${API_URL}/admin/import-excel`, formData, {
@@ -71,7 +82,7 @@ const AdminPanel = () => {
         }
       });
 
-      setUploadResult(response.data.results);
+      setUploadResult(response.data);
       setSelectedFile(null);
       
       const fileInput = document.getElementById('file-input');
@@ -80,112 +91,133 @@ const AdminPanel = () => {
       fetchStats();
 
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to upload file');
+      setUploadError(err.response?.data?.error || err.message || 'Failed to upload file');
     } finally {
       setIsUploading(false);
     }
   };
 
-  const tabs = [
-    { id: 'import', label: 'Excel Import', icon: Upload },
-    { id: 'add', label: 'Add Member', icon: UserPlus },
-    { id: 'members', label: 'View Members', icon: List },
-    { id: 'report', label: 'Monthly Report', icon: Calendar }
-  ];
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <div className="bg-white border-b border-gray-200">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
+              <p className="text-sm text-gray-600">Manage members and system</p>
+            </div>
             <button
               onClick={() => navigate('/')}
-              className="flex items-center space-x-2 text-gray-600 hover:text-primary-600 transition-colors"
+              className="btn-secondary flex items-center space-x-2"
             >
-              <Home className="w-5 h-5" />
-              <span className="text-sm font-medium">Back to Home</span>
+              <Home className="w-4 h-4" />
+              <span>Back to Home</span>
             </button>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
-              <p className="text-xs text-gray-500">Manage members and system</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="card">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Active Members</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.activeMembers}</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Users className="w-8 h-8 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Payments</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.successfulPayments || stats.totalPayments}</p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <FileText className="w-8 h-8 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Revenue</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  ₹{(stats.totalRevenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <FileText className="w-8 h-8 text-purple-600" />
+              </div>
             </div>
           </div>
         </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="card">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Active Members</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.activeMembers}</p>
-                </div>
-                <div className="flex items-center justify-center w-12 h-12 bg-primary-100 rounded-lg">
-                  <Users className="w-6 h-6 text-primary-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Total Payments</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats.successfulPayments}</p>
-                </div>
-                <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg">
-                  <TrendingUp className="w-6 h-6 text-green-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Total Revenue</p>
-                  <p className="text-3xl font-bold text-gray-900">₹{stats.totalRevenue?.toLocaleString('en-IN')}</p>
-                </div>
-                <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg">
-                  <FileSpreadsheet className="w-6 h-6 text-blue-600" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Tabs */}
-        <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      activeTab === tab.id
-                        ? 'border-primary-600 text-primary-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('excel-import')}
+              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-colors ${
+                activeTab === 'excel-import'
+                  ? 'text-primary-600 border-b-2 border-primary-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Upload className="w-5 h-5" />
+              <span>Excel Import</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('add-member')}
+              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-colors ${
+                activeTab === 'add-member'
+                  ? 'text-primary-600 border-b-2 border-primary-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <UserPlus className="w-5 h-5" />
+              <span>Add Member</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('view-members')}
+              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-colors ${
+                activeTab === 'view-members'
+                  ? 'text-primary-600 border-b-2 border-primary-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Users className="w-5 h-5" />
+              <span>View Members</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('monthly-report')}
+              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-colors ${
+                activeTab === 'monthly-report'
+                  ? 'text-primary-600 border-b-2 border-primary-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <FileText className="w-5 h-5" />
+              <span>Monthly Report</span>
+            </button>
           </div>
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'import' && (
-          <div>
-            {/* Excel Import Section */}
-            <div className="card mb-8">
+        <div>
+          {/* Excel Import Tab */}
+          {activeTab === 'excel-import' && (
+            <div className="card">
               <div className="flex items-center space-x-3 mb-6">
                 <div className="flex items-center justify-center w-12 h-12 bg-primary-100 rounded-lg">
                   <Upload className="w-6 h-6 text-primary-600" />
@@ -206,7 +238,7 @@ const AdminPanel = () => {
                     type="file"
                     accept=".xlsx,.xls,.csv"
                     onChange={handleFileSelect}
-                    className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
+                    className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none p-2"
                     disabled={isUploading}
                   />
                 </div>
@@ -241,92 +273,58 @@ const AdminPanel = () => {
                   )}
                 </button>
 
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <h4 className="font-medium text-amber-900 mb-2">Excel File Format:</h4>
-                  <ul className="text-sm text-amber-800 space-y-1">
-                    <li>• Required columns: <strong>Folio No., Name, Email</strong></li>
-                    <li>• Optional: <strong>Phone, Fee Period, Amount, Payment ID, Date of Payment</strong></li>
-                    <li>• The system will automatically add new members and update existing ones</li>
-                    <li>• Multiple payment periods per member are supported</li>
-                    <li>• Deleted members will be restored if present in the upload</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+                {uploadError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-red-900 mb-1">Upload Error</h4>
+                      <p className="text-sm text-red-700">{uploadError}</p>
+                    </div>
+                  </div>
+                )}
 
-            {/* Error Display */}
-            {error && (
-              <div className="card bg-red-50 border border-red-200 mb-8">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-medium text-red-900 mb-1">Upload Error</h4>
-                    <p className="text-sm text-red-700">{error}</p>
-                  </div>
-                </div>
-              </div>
-            )}
+                {uploadResult && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-start space-x-3 mb-4">
+                      <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-semibold text-green-900 mb-1">Import Successful!</h4>
+                        <p className="text-sm text-green-700">Your Excel file has been processed</p>
+                      </div>
+                    </div>
 
-            {/* Success Result */}
-            {uploadResult && (
-              <div className="card bg-green-50 border border-green-200">
-                <div className="flex items-start space-x-3 mb-4">
-                  <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-green-900 mb-1">Import Successful!</h4>
-                    <p className="text-sm text-green-700">Your Excel file has been processed</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="text-center p-3 bg-white rounded-lg">
-                    <p className="text-2xl font-bold text-gray-900">{uploadResult.totalRows}</p>
-                    <p className="text-xs text-gray-600">Total Rows</p>
-                  </div>
-                  <div className="text-center p-3 bg-white rounded-lg">
-                    <p className="text-2xl font-bold text-green-600">{uploadResult.membersAdded}</p>
-                    <p className="text-xs text-gray-600">New Members</p>
-                  </div>
-                  <div className="text-center p-3 bg-white rounded-lg">
-                    <p className="text-2xl font-bold text-blue-600">{uploadResult.membersUpdated}</p>
-                    <p className="text-xs text-gray-600">Updated</p>
-                  </div>
-                  <div className="text-center p-3 bg-white rounded-lg">
-                    <p className="text-2xl font-bold text-primary-600">{uploadResult.paymentsAdded}</p>
-                    <p className="text-xs text-gray-600">Payments</p>
-                  </div>
-                  <div className="text-center p-3 bg-white rounded-lg">
-                    <p className="text-2xl font-bold text-red-600">{uploadResult.errors}</p>
-                    <p className="text-xs text-gray-600">Errors</p>
-                  </div>
-                </div>
-
-                {uploadResult.errorDetails && uploadResult.errorDetails.length > 0 && (
-                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <h5 className="font-medium text-red-900 mb-2 text-sm">Error Details:</h5>
-                    <ul className="text-xs text-red-700 space-y-1">
-                      {uploadResult.errorDetails.map((error, index) => (
-                        <li key={index}>• {error}</li>
-                      ))}
-                    </ul>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <div className="text-center p-3 bg-white rounded-lg">
+                        <p className="text-2xl font-bold text-gray-900">{uploadResult.totalRows}</p>
+                        <p className="text-xs text-gray-600">Total Rows</p>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg">
+                        <p className="text-2xl font-bold text-green-600">{uploadResult.membersAdded}</p>
+                        <p className="text-xs text-gray-600">New Members</p>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg">
+                        <p className="text-2xl font-bold text-blue-600">{uploadResult.membersUpdated}</p>
+                        <p className="text-xs text-gray-600">Updated</p>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg">
+                        <p className="text-2xl font-bold text-primary-600">{uploadResult.paymentsAdded}</p>
+                        <p className="text-xs text-gray-600">Payments</p>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg">
+                        <p className="text-2xl font-bold text-red-600">{uploadResult.errors}</p>
+                        <p className="text-xs text-gray-600">Errors</p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
-        {activeTab === 'add' && (
-          <AddMemberForm onSuccess={fetchStats} />
-        )}
-
-        {activeTab === 'members' && (
-          <MembersList />
-        )}
-
-        {activeTab === 'report' && (
-          <MonthlyPaymentReport />
-        )}
+          {activeTab === 'add-member' && <AddMemberForm onSuccess={handleMemberAdded} />}
+          {activeTab === 'view-members' && <MembersList />}
+          {activeTab === 'monthly-report' && <MonthlyPaymentReport />}
+        </div>
       </div>
     </div>
   );
