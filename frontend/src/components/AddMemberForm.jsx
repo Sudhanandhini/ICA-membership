@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserPlus, Loader2 } from 'lucide-react';
+import { UserPlus, Loader2, Calendar, Info } from 'lucide-react';
 import axios from 'axios';
 
 const AddMemberForm = ({ onSuccess }) => {
@@ -13,7 +13,8 @@ const AddMemberForm = ({ onSuccess }) => {
     pin_code: '',
     state: '',
     chapter: '',
-    member_class: 'New'
+    member_class: 'New',
+    join_date: new Date().toISOString().split('T')[0] // Default to today
   });
 
   const [loading, setLoading] = useState(false);
@@ -21,6 +22,49 @@ const AddMemberForm = ({ onSuccess }) => {
   const [success, setSuccess] = useState('');
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+  // Period configuration
+  const PERIOD_CONFIG = {
+    BASE_YEAR: 2019,
+    PERIODS_PER_YEAR: 4,
+    MONTHS_PER_PERIOD: 3
+  };
+
+  // Calculate which period a member should start paying from based on join date
+  const calculateStartingPeriod = (joinDate) => {
+    const date = new Date(joinDate);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // JavaScript months are 0-indexed
+    
+    // Calculate quarter (1-4)
+    const quarter = Math.ceil(month / PERIOD_CONFIG.MONTHS_PER_PERIOD);
+    
+    // Calculate year offset from base year
+    const yearOffset = year - PERIOD_CONFIG.BASE_YEAR;
+    
+    // Calculate period number (4 periods per year)
+    const periodNumber = (yearOffset * PERIOD_CONFIG.PERIODS_PER_YEAR) + quarter;
+    
+    return periodNumber;
+  };
+
+  // Get period name
+  const getPeriodName = (periodNumber) => {
+    const periodsFromBase = periodNumber - 1;
+    const yearsFromBase = Math.floor(periodsFromBase / PERIOD_CONFIG.PERIODS_PER_YEAR);
+    const quarter = (periodsFromBase % PERIOD_CONFIG.PERIODS_PER_YEAR) + 1;
+    
+    const year = PERIOD_CONFIG.BASE_YEAR + yearsFromBase;
+    
+    const quarterNames = {
+      1: 'Q1 (Jan-Mar)',
+      2: 'Q2 (Apr-Jun)',
+      3: 'Q3 (Jul-Sep)',
+      4: 'Q4 (Oct-Dec)'
+    };
+    
+    return `${year}-${year + 1} ${quarterNames[quarter]}`;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -53,14 +97,33 @@ const AddMemberForm = ({ onSuccess }) => {
         throw new Error('Phone number must be 10 digits');
       }
 
-      console.log('Submitting member data:', formData);
+      // Calculate starting period for new members
+      const startingPeriod = calculateStartingPeriod(formData.join_date);
 
-      const response = await axios.post(`${API_URL}/admin/members`, formData);
+      // Prepare submission data
+      const submissionData = {
+        ...formData,
+        starting_period: startingPeriod
+      };
+
+      console.log('Submitting member data:', submissionData);
+      console.log('Member will start paying from Period:', startingPeriod);
+
+      const response = await axios.post(`${API_URL}/admin/members`, submissionData);
 
       console.log('Add member response:', response.data);
 
       if (response.data.success) {
-        setSuccess('Member added successfully!');
+        const { data } = response.data;
+        const successMsg = `✅ Member added successfully!\n\n` +
+          `📋 Details:\n` +
+          `• Folio: ${data.folio_number}\n` +
+          `• Name: ${data.name}\n` +
+          `• Starting Period: Period ${data.starting_period} (${data.starting_period_name})\n` +
+          `• Periods Initialized: ${data.periods_initialized}\n` +
+          `• Periods Skipped: ${data.periods_skipped}`;
+        
+        setSuccess(successMsg);
         
         // Reset form
         setFormData({
@@ -73,14 +136,15 @@ const AddMemberForm = ({ onSuccess }) => {
           pin_code: '',
           state: '',
           chapter: '',
-          member_class: 'New'
+          member_class: 'New',
+          join_date: new Date().toISOString().split('T')[0]
         });
 
         // Call success callback if provided
         if (onSuccess) {
           setTimeout(() => {
             onSuccess();
-          }, 1500);
+          }, 2500);
         }
       }
     } catch (err) {
@@ -90,6 +154,9 @@ const AddMemberForm = ({ onSuccess }) => {
       setLoading(false);
     }
   };
+
+  // Get the calculated period for display
+  const displayStartingPeriod = formData.join_date ? calculateStartingPeriod(formData.join_date) : null;
 
   return (
     <div className="card">
@@ -110,8 +177,32 @@ const AddMemberForm = ({ onSuccess }) => {
       )}
 
       {success && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-          {success}
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="text-sm text-green-700 whitespace-pre-line">
+            {success}
+          </div>
+        </div>
+      )}
+
+      {displayStartingPeriod && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0">
+              <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-blue-900 mb-1">Payment Information</h4>
+              <p className="text-sm text-blue-700">
+                This member will start paying from <strong>Period {displayStartingPeriod}</strong>
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                {getPeriodName(displayStartingPeriod)}
+              </p>
+              <p className="text-xs text-blue-600 mt-2 pt-2 border-t border-blue-200">
+                ℹ️ Periods before Period {displayStartingPeriod} will be marked as "Not Applicable" since the member hadn't joined yet.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -146,6 +237,26 @@ const AddMemberForm = ({ onSuccess }) => {
             className="input-field"
             required
           />
+        </div>
+
+        {/* Join Date */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center space-x-2">
+            <Calendar className="w-4 h-4" />
+            <span>Join Date <span className="text-red-500">*</span></span>
+          </label>
+          <input
+            type="date"
+            name="join_date"
+            value={formData.join_date}
+            onChange={handleChange}
+            className="input-field"
+            max={new Date().toISOString().split('T')[0]} // Can't select future dates
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            💡 Member will only be charged for periods starting from their join date
+          </p>
         </div>
 
         {/* Email Address */}
