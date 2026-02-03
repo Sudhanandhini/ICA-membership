@@ -105,23 +105,34 @@ const PaymentCalculation = ({ calculation, onProceedToPayment }) => {
         <div className="mb-6">
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Payment History:</h4>
           <div className="grid grid-cols-4 gap-2">
-            {paymentStatus.map((status, index) => (
-              <div
-                key={index}
-                className={`p-2 rounded text-center ${
-                  status.status === 'paid'
-                    ? 'bg-green-100 border border-green-300'
-                    : 'bg-gray-100 border border-gray-300'
-                }`}
-              >
-                <p className="text-xs font-medium text-gray-700">{status.period}</p>
-                <p className={`text-xs mt-1 ${
-                  status.status === 'paid' ? 'text-green-700' : 'text-gray-500'
-                }`}>
-                  {status.status === 'paid' ? '✓ Paid' : 'Unpaid'}
-                </p>
-              </div>
-            ))}
+            {paymentStatus.map((status, index) => {
+              if (status.status === 'na') {
+                // Show blank/NA for years before joining
+                return (
+                  <div key={index} className="p-2 rounded text-center bg-white border border-gray-200 opacity-40">
+                    <p className="text-xs font-medium text-gray-400">{status.period}</p>
+                    <p className="text-xs mt-1 text-gray-300">N/A</p>
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={index}
+                  className={`p-2 rounded text-center ${
+                    status.status === 'paid'
+                      ? 'bg-green-100 border border-green-300'
+                      : 'bg-gray-100 border border-gray-300'
+                  }`}
+                >
+                  <p className="text-xs font-medium text-gray-700">{status.period}</p>
+                  <p className={`text-xs mt-1 ${
+                    status.status === 'paid' ? 'text-green-700' : 'text-gray-500'
+                  }`}>
+                    {status.status === 'paid' ? '✓ Paid' : 'Unpaid'}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

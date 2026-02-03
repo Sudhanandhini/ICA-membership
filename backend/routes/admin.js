@@ -26,13 +26,27 @@ function getPeriodName(periodNumber) {
 }
 
 /**
- * Calculate period number from date
- * Year 2026 = Period 26, Year 2027 = Period 27, etc.
+ * Calculate period number from date - Financial Year (April to March)
+ * Period 25 = April 2025 to March 2026
+ * Period 26 = April 2026 to March 2027
+ * 
+ * Examples:
+ * - Feb 2026 → Period 25 (because Feb is before April)
+ * - May 2026 → Period 26 (because May is after April)
  */
 function calculatePeriodFromDate(date) {
   const dateObj = new Date(date);
   const year = dateObj.getFullYear();
-  return year - 2000; // 2026 -> 26, 2027 -> 27
+  const month = dateObj.getMonth() + 1; // 1-12
+  
+  // Financial year starts in April
+  // If month is April (4) onwards, use current year
+  // If month is Jan-Mar (1-3), use previous period
+  if (month >= 4) {
+    return year - 2000; // Apr 2026 onwards → period 26
+  } else {
+    return year - 2000 - 1; // Jan-Mar 2026 → period 25
+  }
 }
 
 // ============================================
@@ -587,20 +601,36 @@ router.get('/yearly-report', async (req, res) => {
 /**
  * GET /api/admin/members/payment-status
  */
+/**
+ * GET /api/admin/members/payment-status
+ */
 router.get('/members/payment-status', async (req, res) => {
   try {
     const { year, status, page = 1, limit = 20, search = '' } = req.query;
     const offset = (page - 1) * limit;
+    
+    // Convert year format: both "2021-2022" and "2021-22" should work
+    let normalizedYear = year;
+    if (year && year.includes('-')) {
+      const parts = year.split('-');
+      if (parts[1].length === 4) {
+        // Convert "2021-2022" to "2021-22"
+        normalizedYear = `${parts[0]}-${parts[1].slice(-2)}`;
+      }
+    }
     
     const yearToPeriod = {
       '2021-22': 21, '2022-23': 22, '2023-24': 23, '2024-25': 24,
       '2025-26': 25, '2026-27': 26, '2027-28': 27, '2028-29': 28
     };
 
-    const periodNum = yearToPeriod[year];
+    const periodNum = yearToPeriod[normalizedYear];
     
     if (!periodNum) {
-      return res.status(400).json({ success: false, error: 'Invalid year format' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid year format. Expected format: 2021-22 or 2021-2022' 
+      });
     }
 
     const amountCol = `amount_${periodNum}`;
@@ -653,7 +683,7 @@ router.get('/members/payment-status', async (req, res) => {
         totalMembers: total,
         totalPages: Math.ceil(total / limit)
       },
-      filters: { year, status, search }
+      filters: { year: normalizedYear, status, search }
     });
 
   } catch (error) {
@@ -665,16 +695,28 @@ router.get('/members/payment-status', async (req, res) => {
 /**
  * PUT /api/admin/members/update-status-by-payment
  */
+/**
+ * PUT /api/admin/members/update-status-by-payment
+ */
 router.put('/members/update-status-by-payment', async (req, res) => {
   try {
     const { year } = req.body;
+    
+    // Convert year format
+    let normalizedYear = year;
+    if (year && year.includes('-')) {
+      const parts = year.split('-');
+      if (parts[1].length === 4) {
+        normalizedYear = `${parts[0]}-${parts[1].slice(-2)}`;
+      }
+    }
     
     const yearToPeriod = {
       '2021-22': 21, '2022-23': 22, '2023-24': 23, '2024-25': 24,
       '2025-26': 25, '2026-27': 26, '2027-28': 27, '2028-29': 28
     };
 
-    const periodNum = yearToPeriod[year];
+    const periodNum = yearToPeriod[normalizedYear];
     
     if (!periodNum) {
       return res.status(400).json({ success: false, error: 'Invalid year format' });
@@ -711,5 +753,4 @@ router.put('/members/update-status-by-payment', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
 export default router;

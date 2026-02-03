@@ -88,14 +88,28 @@ router.post('/calculate', async (req, res) => {
     const paymentStatus = [];
     const unpaidPeriods = [];
     
+    const startingPeriod = member.starting_period || 21;
     for (let yr = 21; yr <= 28; yr++) {
       const period = member[`period_${yr}`] || `20${yr}-20${yr + 1}`;
       const amount = member[`amount_${yr}`];
       const paymentId = member[`payment_id_${yr}`];
       const paymentDate = member[`payment_date_${yr}`];
-      
+
+      if (yr < startingPeriod) {
+        // Before joining: mark as N/A for frontend
+        paymentStatus.push({
+          period: period,
+          year: `20${yr}`,
+          amount: null,
+          paymentId: null,
+          paymentDate: null,
+          status: 'na'
+        });
+        continue;
+      }
+
       const isPaid = amount !== null && paymentId !== null;
-      
+
       paymentStatus.push({
         period: period,
         year: `20${yr}`,
@@ -104,12 +118,12 @@ router.post('/calculate', async (req, res) => {
         paymentDate: paymentDate,
         status: isPaid ? 'paid' : 'unpaid'
       });
-      
+
       // If unpaid and before/equal to current period
       if (!isPaid) {
         const periodYear = parseInt(`20${yr}`);
         const currentPeriodYear = parseInt(currentPeriod.split('-')[0]);
-        
+
         if (periodYear <= currentPeriodYear) {
           unpaidPeriods.push({
             period: period,
