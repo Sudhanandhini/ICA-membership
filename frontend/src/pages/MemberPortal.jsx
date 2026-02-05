@@ -80,18 +80,25 @@ const MemberPortal = () => {
     }
   };
 
-  const handleProceedToPayment = async () => {
+  const handleProceedToPayment = async (selectedOption) => {
     if (!paymentCalculation) {
       setError('No payment calculation available');
       return;
     }
 
-    await initiatePayment(paymentCalculation);
+    // selectedOption is the payment option/plan object from PaymentCalculation
+    await initiatePayment(paymentCalculation, selectedOption);
   };
 
-  const initiatePayment = async (calculation) => {
-    if (!selectedMember || !calculation?.unpaidPeriods?.length) {
+  const initiatePayment = async (calculation, selectedOption = null) => {
+    if (!selectedMember) {
       setError('Invalid payment data');
+      return;
+    }
+
+    // Require selected option to proceed
+    if (!selectedOption) {
+      setError('Please select a payment option');
       return;
     }
 
@@ -106,16 +113,18 @@ const MemberPortal = () => {
         }
       }
 
-      // Prepare payment data
-      const payableYears = calculation.unpaidPeriods.map(period => ({
-        year: period.period,
-        amount: period.amount
+      // Prepare payment data from selected option
+      const payableYears = selectedOption.periods.map((period, idx) => ({
+        year: selectedOption.years[idx],
+        amount: 1200
       }));
 
       const orderData = await paymentAPI.initiate({
         memberId: selectedMember.id,
         payableYears: payableYears,
-        totalAmount: calculation.totalDue,
+        totalAmount: selectedOption.totalAmount,
+        optionId: selectedOption.id,
+        periods: selectedOption.periods
       });
 
       handleRazorpayPayment(

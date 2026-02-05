@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, TrendingUp, Download, DollarSign, FileText, User, CreditCard, Filter, X, Search } from 'lucide-react';
+import { Calendar, TrendingUp, Download, IndianRupee, FileText, User, CreditCard, Filter, X, Search } from 'lucide-react';
 import axios from 'axios';
 
 const MonthlyPaymentReport = () => {
@@ -202,7 +202,7 @@ const MonthlyPaymentReport = () => {
                       ₹{reportData.summary.totalRevenue.toLocaleString('en-IN')}
                     </p>
                   </div>
-                  <DollarSign className="w-8 h-8 text-green-600" />
+                  <IndianRupee className="w-8 h-8 text-green-600" />
                 </div>
               </div>
             </div>

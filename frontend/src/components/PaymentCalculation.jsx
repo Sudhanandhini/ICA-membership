@@ -1,7 +1,9 @@
-import React from 'react';
-import { CreditCard, Calendar, IndianRupee, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { CreditCard, Calendar, IndianRupee, AlertCircle, Check } from 'lucide-react';
 
 const PaymentCalculation = ({ calculation, onProceedToPayment }) => {
+  const [selectedPlan, setSelectedPlan] = useState(null);
+
   if (!calculation) {
     return (
       <div className="card">
@@ -22,7 +24,8 @@ const PaymentCalculation = ({ calculation, onProceedToPayment }) => {
     yearsOwed,
     amountPerYear,
     totalDue,
-    canPay
+    canPay,
+    paymentOptions
   } = calculation;
 
   return (
@@ -139,18 +142,150 @@ const PaymentCalculation = ({ calculation, onProceedToPayment }) => {
 
       {/* Action Buttons */}
       <div className="space-y-3">
-        {canPay ? (
+        {canPay && paymentOptions?.type === 'outstanding' ? (
           <>
-            <button
-              onClick={onProceedToPayment}
-              className="w-full btn-primary py-3 text-lg font-semibold"
-            >
-              Proceed to Payment - ₹{totalDue.toLocaleString()}
-            </button>
+            <div className="mb-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-4">Choose payment option:</h4>
+              <p className="text-xs text-amber-700 mb-4 p-3 bg-amber-50 rounded border border-amber-200">
+                <span className="font-semibold">Note:</span> You must pay sequentially - cannot skip any year. Select the number of years you want to pay now.
+              </p>
+              <div className="space-y-3">
+                {paymentOptions.options.map((option) => (
+                  <div
+                    key={option.id}
+                    onClick={() => setSelectedPlan(option.id)}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      selectedPlan === option.id
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 bg-white hover:border-primary-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h5 className="font-semibold text-gray-900 mb-2">{option.name}</h5>
+                        <p className="text-xs text-gray-600 mb-2">{option.description}</p>
+                        <div className="text-xs text-gray-700 space-y-1">
+                          {option.years.map((year, idx) => (
+                            <div key={idx}>
+                              <span className="font-medium">{year}</span> - ₹1,200
+                            </div>
+                          ))}
+                        </div>
+                        {option.remaining > 0 && (
+                          <p className="text-xs text-orange-600 mt-2 font-semibold">
+                            {option.remaining} more year(s) remaining to pay
+                          </p>
+                        )}
+                      </div>
+                      {selectedPlan === option.id && (
+                        <Check className="w-5 h-5 text-primary-600 flex-shrink-0 mt-1" />
+                      )}
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <p className="text-lg font-bold text-gray-900">₹{option.totalAmount.toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {selectedPlan && (
+              <button
+                onClick={() => {
+                  const option = paymentOptions.options.find(opt => opt.id === selectedPlan);
+                  onProceedToPayment(option);
+                }}
+                className="w-full btn-primary py-3 text-lg font-semibold"
+              >
+                Proceed to Payment - ₹{paymentOptions.options.find(opt => opt.id === selectedPlan)?.totalAmount.toLocaleString()}
+              </button>
+            )}
+
+            {!selectedPlan && (
+              <button
+                disabled
+                className="w-full py-3 text-lg font-semibold bg-gray-200 text-gray-500 rounded-lg cursor-not-allowed"
+              >
+                Select a payment option to continue
+              </button>
+            )}
+
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800">
-                <span className="font-semibold">Note:</span> You must pay for all pending years 
-                sequentially. Secure payment via Razorpay.
+                <span className="font-semibold">Payment Policy:</span> All pending years must be paid sequentially. 
+                You cannot skip any year. Complete remaining balance after this payment.
+              </p>
+            </div>
+          </>
+        ) : paymentOptions?.type === 'future' ? (
+          <>
+            <div className="mb-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-4">Choose your membership plan:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {paymentOptions.options.map((option) => (
+                  <div
+                    key={option.id}
+                    onClick={() => setSelectedPlan(option.id)}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      selectedPlan === option.id
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 bg-white hover:border-primary-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h5 className="font-semibold text-gray-900 mb-1">{option.name}</h5>
+                        <p className="text-xs text-gray-600 mb-3">{option.description}</p>
+                        <div className="space-y-1">
+                          {option.years.map((year, idx) => (
+                            <div key={idx} className="text-xs text-gray-700">
+                              <span className="font-medium">{year}</span> - ₹1,200
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {selectedPlan === option.id && (
+                        <Check className="w-5 h-5 text-primary-600 flex-shrink-0 mt-1" />
+                      )}
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <p className="text-lg font-bold text-gray-900">₹{option.totalAmount.toLocaleString()}</p>
+                      {option.savings > 0 && (
+                        <p className="text-xs text-green-600 font-semibold mt-1">
+                          Save ₹{option.savings.toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {selectedPlan && (
+              <button
+                onClick={() => {
+                  const option = paymentOptions.options.find(opt => opt.id === selectedPlan);
+                  onProceedToPayment(option);
+                }}
+                className="w-full btn-primary py-3 text-lg font-semibold"
+              >
+                Proceed to Payment - ₹{paymentOptions.options.find(opt => opt.id === selectedPlan)?.totalAmount.toLocaleString()}
+              </button>
+            )}
+
+            {!selectedPlan && (
+              <button
+                disabled
+                className="w-full py-3 text-lg font-semibold bg-gray-200 text-gray-500 rounded-lg cursor-not-allowed"
+              >
+                Select a plan to continue
+              </button>
+            )}
+
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-800">
+                <span className="font-semibold">Note:</span> Secure payment via Razorpay. 
+                Choose the plan that best suits your needs.
               </p>
             </div>
           </>

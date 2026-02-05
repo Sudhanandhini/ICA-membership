@@ -457,17 +457,26 @@ router.get('/stats', async (req, res) => {
 router.put('/members/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, name, email, phone, join_date, starting_period } = req.body;
+    const { status, name, email, phone, join_date, starting_period, ...paymentData } = req.body;
 
     const updates = [];
     const params = [];
 
+    // Update basic member info
     if (status) { updates.push('status = ?'); params.push(status); }
     if (name) { updates.push('name = ?'); params.push(name); }
     if (email) { updates.push('email = ?'); params.push(email); }
     if (phone) { updates.push('phone = ?'); params.push(phone); }
     if (join_date) { updates.push('join_date = ?'); params.push(join_date); }
     if (starting_period) { updates.push('starting_period = ?'); params.push(starting_period); }
+
+    // Handle payment data updates (amount_XX, payment_date_XX, payment_id_XX)
+    Object.entries(paymentData).forEach(([key, value]) => {
+      if (key.startsWith('amount_') || key.startsWith('payment_date_') || key.startsWith('payment_id_')) {
+        updates.push(`${key} = ?`);
+        params.push(value);
+      }
+    });
 
     if (updates.length === 0) {
       return res.status(400).json({ success: false, error: 'No fields to update' });
@@ -577,6 +586,11 @@ router.get('/yearly-report', async (req, res) => {
 
         if (amount && amount > 0 && paymentDate && paymentId) {
           const year = new Date(paymentDate).getFullYear();
+
+          // Filter out invalid years (1899, 2016, etc.) - only include valid years from 2020 onwards
+          if (year < 2020) {
+            continue;
+          }
 
           if (!yearlyData[year]) {
             yearlyData[year] = { year: year, payments: 0, revenue: 0 };

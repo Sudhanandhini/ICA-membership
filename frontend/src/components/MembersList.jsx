@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Search, Filter, Edit, Trash2, RotateCcw, Loader2, Eye, AlertCircle, CheckCircle, X } from 'lucide-react';
 import axios from 'axios';
 import PaymentHistoryModal from './PaymentHistoryModal';
+import EditMemberModal from './EditMemberModal';
 
 const MembersList = () => {
   const [members, setMembers] = useState([]);
@@ -15,6 +16,7 @@ const MembersList = () => {
   const [totalMembers, setTotalMembers] = useState(0);
   const [error, setError] = useState('');
   const [selectedMember, setSelectedMember] = useState(null);
+  const [editingMember, setEditingMember] = useState(null);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -382,7 +384,8 @@ const MembersList = () => {
                           ) : (
                             <>
                               <button
-                                className="p-1 text-gray-600 hover:bg-gray-50 rounded"
+                                onClick={() => setEditingMember(member)}
+                                className="p-1 text-blue-600 hover:bg-blue-50 rounded"
                                 title="Edit member"
                               >
                                 <Edit className="w-4 h-4" />
@@ -439,6 +442,18 @@ const MembersList = () => {
           memberName={selectedMember.name}
           memberFolio={selectedMember.folio_number}
           onClose={() => setSelectedMember(null)}
+        />
+      )}
+
+      {/* Edit Member Modal */}
+      {editingMember && (
+        <EditMemberModal
+          member={editingMember}
+          onClose={() => setEditingMember(null)}
+          onSuccess={() => {
+            fetchMembers();
+            setEditingMember(null);
+          }}
         />
       )}
     </div>

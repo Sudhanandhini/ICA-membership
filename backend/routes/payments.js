@@ -1,5 +1,6 @@
 import express from 'express';
 import db from '../config/database.js';
+import { createRazorpayOrder, verifyRazorpaySignature } from '../config/razorpay.js';
 
 const router = express.Router();
 
@@ -127,6 +128,7 @@ router.post('/calculate', async (req, res) => {
         if (periodYear <= currentPeriodYear) {
           unpaidPeriods.push({
             period: period,
+            year: `20${yr}`,
             amount: 1200
           });
         }
@@ -137,6 +139,70 @@ router.post('/calculate', async (req, res) => {
 
     console.log('Unpaid periods:', unpaidPeriods.length);
     console.log('Total due:', totalDue);
+
+    // Generate payment options
+    let paymentOptions = null;
+
+    if (unpaidPeriods.length > 0) {
+      // Member has outstanding dues - offer flexible payment options
+      paymentOptions = {
+        type: 'outstanding',
+        available: true,
+        allUnpaidPeriods: unpaidPeriods,
+        options: []
+      };
+
+      // Option 1: Pay whole amount at once
+      paymentOptions.options.push({
+        id: 'option_all',
+        name: 'Pay All Outstanding',
+        description: `Pay all ${unpaidPeriods.length} year(s) at once`,
+        yearsCount: unpaidPeriods.length,
+        periods: unpaidPeriods.map(p => p.year),
+        totalAmount: unpaidPeriods.length * 1200,
+        years: unpaidPeriods.map(p => p.period)
+      });
+
+      // Generate options for 1, 2, 3, 4, 5 years (if applicable)
+      for (let yearsCount = 1; yearsCount <= 5 && yearsCount < unpaidPeriods.length; yearsCount++) {
+        const selectedPeriods = unpaidPeriods.slice(0, yearsCount);
+        paymentOptions.options.push({
+          id: `option_${yearsCount}year`,
+          name: `Pay ${yearsCount} Year${yearsCount > 1 ? 's' : ''}`,
+          description: `First ${yearsCount} year(s): ${selectedPeriods.map(p => p.period).join(', ')}`,
+          yearsCount: yearsCount,
+          periods: selectedPeriods.map(p => p.year),
+          totalAmount: yearsCount * 1200,
+          years: selectedPeriods.map(p => p.period),
+          remaining: unpaidPeriods.length - yearsCount
+        });
+      }
+    } else {
+      // Member has no outstanding dues - offer future payment plans (2026 onwards)
+      paymentOptions = {
+        type: 'future',
+        available: true,
+        options: [
+          {
+            id: 'plan_1year',
+            name: '1 Year Plan',
+            description: 'Single year membership (2026-2027)',
+            years: ['2026-2027'],
+            periods: [26],
+            totalAmount: 1200
+          },
+          {
+            id: 'plan_3year',
+            name: '3 Year Plan (2026-2029)',
+            description: 'Multi-year commitment: 2026-2027, 2027-2028, 2028-2029',
+            years: ['2026-2027', '2027-2028', '2028-2029'],
+            periods: [26, 27, 28],
+            totalAmount: 3400,
+            savings: (1200 * 3) - 3400
+          }
+        ]
+      };
+    }
 
     res.json({
       success: true,
@@ -149,7 +215,8 @@ router.post('/calculate', async (req, res) => {
         yearsOwed: unpaidPeriods.length,
         amountPerYear: 1200,
         totalDue: totalDue,
-        canPay: unpaidPeriods.length > 0
+        canPay: unpaidPeriods.length > 0,
+        paymentOptions: paymentOptions
       }
     });
 
@@ -168,7 +235,7 @@ router.post('/calculate', async (req, res) => {
  */
 router.post('/initiate', async (req, res) => {
   try {
-    const { memberId, payableYears, totalAmount } = req.body;
+    const { memberId, payableYears, totalAmount, optionId, periods } = req.body;
     
     if (!memberId || !payableYears || !totalAmount) {
       return res.status(400).json({
@@ -191,23 +258,40 @@ router.post('/initiate', async (req, res) => {
     
     const member = members[0];
     
-    // TODO: Create Razorpay order
-    // For now, return mock data
-    const orderId = 'order_' + Date.now();
+    // Create actual Razorpay order
+    const receipt = `receipt_${memberId}_${Date.now()}`;
+    const notes = {
+      memberId: memberId,
+      folioNumber: member.folio_number,
+      memberName: member.name,
+      periods: periods ? periods.join(',') : 'N/A',
+      optionId: optionId || 'N/A',
+      yearsCount: payableYears.length
+    };
+    
+    const orderResult = await createRazorpayOrder(totalAmount, receipt, notes);
+    
+    if (!orderResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create Razorpay order',
+        error: orderResult.error
+      });
+    }
     
     res.json({
       success: true,
       order: {
-        id: orderId,
-        amount: totalAmount * 100, // Razorpay expects paise
-        currency: 'INR'
+        id: orderResult.order.id,
+        amount: orderResult.order.amount,
+        currency: orderResult.order.currency
       },
       member: {
         name: member.name,
         email: member.email,
         folio_number: member.folio_number
       },
-      razorpayKeyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_key'
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID
     });
     
   } catch (error) {
