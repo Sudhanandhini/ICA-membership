@@ -354,18 +354,19 @@ router.get('/members', async (req, res) => {
  */
 router.post('/members', async (req, res) => {
   try {
-    const { 
-      folio_number, 
-      name, 
-      email, 
-      phone, 
-      gender, 
-      address, 
-      pin_code, 
-      state, 
-      chapter, 
+    const {
+      folio_number,
+      name,
+      email,
+      phone,
+      gender,
+      address,
+      pin_code,
+      state,
+      chapter,
       member_class,
-      join_date
+      join_date,
+      dob
     } = req.body;
 
     console.log('Received member data:', req.body);
@@ -424,11 +425,11 @@ router.post('/members', async (req, res) => {
 
     const insertQuery = `
       INSERT INTO members_with_payments (
-        folio_number, name, email, phone, gender, address, pin_code, state, chapter, 
+        folio_number, name, dob, email, phone, gender, address, pin_code, state, chapter,
         member_class, status, join_date, starting_period,
         ${periodColumns.join(', ')}
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?,
         ${periodValues.map(() => '?').join(', ')}
       )
     `;
@@ -436,6 +437,7 @@ router.post('/members', async (req, res) => {
     const insertParams = [
       folio_number,
       name,
+      dob || null,
       email,
       phone || '0000000000',
       gender || 'Male',

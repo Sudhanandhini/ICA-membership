@@ -1,11 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import cron from 'node-cron';
 import db from './config/database.js';
 import memberRoutes from './routes/members.js';
 import paymentRoutes from './routes/payments.js';
 import adminRoutes from './routes/admin.js';
 import { runMigrations } from './database/migrations.js';
+import { checkAndSendBirthdayEmails } from './utils/birthdayService.js';
 
 dotenv.config();
 
@@ -111,7 +113,17 @@ const startServer = async () => {
 
     // Run database migrations
     await runMigrations();
-    
+
+    // Schedule birthday emails - runs daily at 8:00 AM
+    cron.schedule('0 8 * * *', () => {
+      console.log('[Cron] Checking for birthdays...');
+      checkAndSendBirthdayEmails();
+    });
+    console.log('🎂 Birthday email cron scheduled (daily at 8:00 AM)');
+
+    // Also check birthdays on server startup
+    checkAndSendBirthdayEmails();
+
     app.listen(PORT, () => {
       console.log('\n' + '='.repeat(60));
       console.log('🚀 MEMBERSHIP PAYMENT SYSTEM - SERVER STARTED');

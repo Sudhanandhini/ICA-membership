@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home } from 'lucide-react';
+import axios from 'axios';
 import MemberSearch from '../components/MemberSearch';
 import MemberDetails from '../components/MemberDetails';
 import PaymentCalculation from '../components/PaymentCalculation';
 import PaymentSuccess from '../components/PaymentSuccess';
+import OtpVerification from '../components/OtpVerification';
 import Loading from '../components/Loading';
 import { paymentAPI, handleRazorpayPayment } from '../services/api';
 import { loadRazorpayScript } from '../utils/helpers';
@@ -18,6 +20,14 @@ const MemberPortal = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  // OTP states
+  const [pendingMember, setPendingMember] = useState(null);
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [otpStep, setOtpStep] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
   useEffect(() => {
     loadRazorpayScript();
   }, []);
@@ -29,10 +39,40 @@ const MemberPortal = () => {
     }
   }, [selectedMember]);
 
-  const handleMemberSelect = (member) => {
-    setSelectedMember(member);
+  const handleMemberSelect = async (member) => {
+    setError('');
     setPaymentCalculation(null);
     setPaymentSuccess(null);
+    setSendingOtp(true);
+
+    try {
+      const response = await axios.post(`${API_URL}/members/send-otp`, {
+        memberId: member.id
+      });
+
+      if (response.data.success) {
+        setPendingMember(member);
+        setMaskedEmail(response.data.email);
+        setOtpStep(true);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to send OTP. Please try again.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleOtpVerified = (verifiedMember) => {
+    setSelectedMember(verifiedMember);
+    setPendingMember(null);
+    setMaskedEmail('');
+    setOtpStep(false);
+  };
+
+  const handleOtpBack = () => {
+    setPendingMember(null);
+    setMaskedEmail('');
+    setOtpStep(false);
     setError('');
   };
 
@@ -166,6 +206,9 @@ const MemberPortal = () => {
     setError('');
     setIsProcessingPayment(false);
     setIsCalculating(false);
+    setPendingMember(null);
+    setMaskedEmail('');
+    setOtpStep(false);
   };
 
   return (
@@ -213,13 +256,29 @@ const MemberPortal = () => {
           </div>
         )}
 
+        {/* Sending OTP overlay */}
+        {sendingOtp && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-xl p-8 max-w-sm mx-4">
+              <Loading message="Sending OTP to your email..." />
+            </div>
+          </div>
+        )}
+
         {paymentSuccess ? (
           <PaymentSuccess paymentData={paymentSuccess} onReset={handleReset} />
+        ) : otpStep && pendingMember ? (
+          <OtpVerification
+            member={pendingMember}
+            maskedEmail={maskedEmail}
+            onVerified={handleOtpVerified}
+            onBack={handleOtpBack}
+          />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-6">
               <MemberSearch onMemberSelect={handleMemberSelect} />
-              
+
               {selectedMember && (
                 <MemberDetails
                   member={selectedMember}
@@ -257,7 +316,7 @@ const MemberPortal = () => {
           </div>
         )}
 
-        {!selectedMember && !paymentSuccess && (
+        {!selectedMember && !paymentSuccess && !otpStep && (
           <div className="mt-8 card max-w-3xl mx-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               How to Use This System
@@ -273,31 +332,37 @@ const MemberPortal = () => {
                 <span className="flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full font-semibold text-xs flex-shrink-0">
                   2
                 </span>
-                <span>Select the member from the search results to view their details</span>
+                <span>Select the member from the search results</span>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full font-semibold text-xs flex-shrink-0">
                   3
                 </span>
-                <span>The system will automatically calculate payable years (₹1,200 per year)</span>
+                <span>A verification code (OTP) will be sent to your registered email</span>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full font-semibold text-xs flex-shrink-0">
                   4
                 </span>
-                <span>Review the calculation and proceed to payment via Razorpay</span>
+                <span>Enter the 6-digit OTP to verify your identity</span>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full font-semibold text-xs flex-shrink-0">
                   5
                 </span>
+                <span>View payment details and proceed to payment via Razorpay</span>
+              </li>
+              <li className="flex items-start space-x-2">
+                <span className="flex items-center justify-center w-6 h-6 bg-primary-100 text-primary-700 rounded-full font-semibold text-xs flex-shrink-0">
+                  6
+                </span>
                 <span>After successful payment, membership is activated immediately</span>
               </li>
             </ol>
-            
+
             <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-sm text-amber-800">
-                <span className="font-semibold">Important:</span> You cannot skip membership years. 
+                <span className="font-semibold">Important:</span> You cannot skip membership years.
                 If you have pending years, you must pay for all years sequentially.
               </p>
             </div>

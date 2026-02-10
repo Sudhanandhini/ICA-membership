@@ -6,6 +6,7 @@ const AddMemberForm = ({ onSuccess }) => {
   const [formData, setFormData] = useState({
     folio_number: '',
     name: '',
+    dob: '',
     email: '',
     phone: '',
     gender: 'Male',
@@ -111,6 +112,7 @@ const AddMemberForm = ({ onSuccess }) => {
         setFormData({
           folio_number: '',
           name: '',
+          dob: '',
           email: '',
           phone: '',
           gender: 'Male',
@@ -218,6 +220,21 @@ const AddMemberForm = ({ onSuccess }) => {
             placeholder="Enter full name"
             className="input-field"
             required
+          />
+        </div>
+
+        {/* Date of Birth */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Date of Birth
+          </label>
+          <input
+            type="date"
+            name="dob"
+            value={formData.dob}
+            onChange={handleChange}
+            className="input-field"
+            max={new Date().toISOString().split('T')[0]}
           />
         </div>
 
