@@ -24,7 +24,7 @@ async function sendBirthdayEmail(member) {
     subject: 'Happy Birthday! - Membership Portal',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+        <div style="background: linear-gradient(135deg, #1e46c9 0%, #2c48c5 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
           <div style="font-size: 48px; margin-bottom: 10px;">&#127874;</div>
           <h1 style="color: white; margin: 0; font-size: 28px;">Happy Birthday!</h1>
         </div>
@@ -53,12 +53,22 @@ async function sendBirthdayEmail(member) {
   await transporter.sendMail(mailOptions);
 }
 
+// Track last sent date to avoid duplicate sends on server restarts
+let lastSentDate = null;
+
 /**
- * Check for today's birthdays and send emails
+ * Check for today's birthdays and send emails (once per day only)
  */
 export async function checkAndSendBirthdayEmails() {
   try {
     const today = new Date();
+    const todayStr = today.toISOString().split('T')[0]; // "2026-02-10"
+
+    if (lastSentDate === todayStr) {
+      console.log('[Birthday] Already sent today, skipping');
+      return;
+    }
+
     const month = today.getMonth() + 1;
     const day = today.getDate();
 
@@ -76,6 +86,7 @@ export async function checkAndSendBirthdayEmails() {
 
     if (members.length === 0) {
       console.log(`[Birthday] No birthdays today (${month}/${day})`);
+      lastSentDate = todayStr;
       return;
     }
 
@@ -96,6 +107,7 @@ export async function checkAndSendBirthdayEmails() {
     }
 
     console.log(`[Birthday] Done: ${sent} sent, ${failed} failed`);
+    lastSentDate = todayStr;
   } catch (error) {
     console.error('[Birthday] Error checking birthdays:', error.message);
   }

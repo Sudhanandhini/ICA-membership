@@ -115,14 +115,14 @@ const startServer = async () => {
     await runMigrations();
 
     // Schedule birthday emails - runs daily at 8:00 AM
-    cron.schedule('0 8 * * *', () => {
-      console.log('[Cron] Checking for birthdays...');
-      checkAndSendBirthdayEmails();
-    });
-    console.log('🎂 Birthday email cron scheduled (daily at 8:00 AM)');
+    // cron.schedule('0 8 * * *', () => {
+    //   console.log('[Cron] Checking for birthdays...');
+    //   checkAndSendBirthdayEmails();
+    // });
+    // console.log('🎂 Birthday email cron scheduled (daily at 8:00 AM)');
 
-    // Also check birthdays on server startup
-    checkAndSendBirthdayEmails();
+    // // Also check birthdays on server startup
+    // checkAndSendBirthdayEmails();
 
     app.listen(PORT, () => {
       console.log('\n' + '='.repeat(60));
