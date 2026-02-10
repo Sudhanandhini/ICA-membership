@@ -1,6 +1,29 @@
 import XLSX from 'xlsx';
 import db from '../config/database.js';
 
+/* ---------------------------------------------------------
+   NORMALIZE EXCEL COLUMN KEYS
+--------------------------------------------------------- */
+const normalizeKeys = (row) => {
+  const out = {};
+  for (const key in row) {
+    if (!key) continue;
+
+    const cleanKey = key
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "");
+
+    // TRIM all string values to remove tabs, spaces, etc.
+    out[cleanKey] = typeof row[key] === 'string' ? row[key].trim() : row[key];
+  }
+  return out;
+};
+
+/* ---------------------------------------------------------
+   READ AND PARSE EXCEL FILE
+--------------------------------------------------------- */
 export const parseExcelFile = (filePath) => {
   try {
     const workbook = XLSX.readFile(filePath);
@@ -12,277 +35,303 @@ export const parseExcelFile = (filePath) => {
       defval: null
     });
 
-    // 🔍 DEBUG: Print ALL column names found
     if (jsonData.length > 0) {
-      console.log('\n🔍 EXCEL COLUMNS FOUND:');
+      console.log(`\n🔍 EXCEL COLUMNS FOUND:`);
       console.log(Object.keys(jsonData[0]));
-      console.log('\n🔍 FIRST ROW DATA:');
-      console.log(JSON.stringify(jsonData[0], null, 2));
     }
 
-    return {
-      success: true,
-      data: jsonData,
-      sheetName
-    };
+    // NORMALIZE EVERY ROW BEFORE RETURNING
+    const normalized = jsonData.map((row) => normalizeKeys(row));
+
+    return { success: true, data: normalized, sheetName };
   } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
+    return { success: false, error: error.message };
   }
 };
 
+/* ---------------------------------------------------------
+   PARSE AMOUNT
+--------------------------------------------------------- */
 const parseAmount = (value) => {
-  console.log('🔍 parseAmount input:', value, 'type:', typeof value);
-  
-  if (value === null || value === undefined || value === '') {
-    console.log('   → NULL (empty)');
-    return null;
-  }
-
-  // Handle "New Member" or other text
-  if (typeof value === 'string' && isNaN(value.replace(/[,₹$]/g, ''))) {
-    console.log('   → NULL (not a number)');
-    return null;
-  }
-
-  let str = String(value).trim().replace(/[,₹$]/g, '');
-  const num = parseFloat(str);
-  
-  if (isNaN(num) || num < 0) {
-    console.log('   → NULL (invalid number)');
-    return null;
-  }
-  
-  console.log('   → ', num);
-  return num;
+  if (!value) return null;
+  const num = parseFloat(String(value).replace(/[^0-9.]/g, ''));
+  return isNaN(num) ? null : num;
 };
 
+/* ---------------------------------------------------------
+   PARSE DATE FROM EXCEL OR STRING
+--------------------------------------------------------- */
 const parseExcelDate = (value) => {
   if (!value) return null;
 
-  try {
-    if (typeof value === "string") {
-      // Handle "New Member" text
-      if (value.toLowerCase().includes('new member')) {
-        return null;
-      }
-
-      const cleaned = value
-        .replace(/(\d+)(st|nd|rd|th)/g, "$1")
-        .replace(",", "")
-        .trim();
-
-      const d = new Date(cleaned);
-      if (isNaN(d.getTime())) return null;
-
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      
-      return `${year}-${month}-${day}`;
+  // Skip non-date strings like "New Member"
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase().trim();
+    if (lower === 'new member' || lower === 'na' || lower === 'n/a' || lower === '-') {
+      return null;
     }
 
-    if (typeof value === "number") {
-      const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-      const date = new Date(excelEpoch.getTime() + value * 86400000);
+    const cleaned = value
+      .replace(/(\d+)(st|nd|rd|th)/g, "$1")
+      .replace(/,/g, "")
+      .trim();
 
-      const year = date.getUTCFullYear();
-      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(date.getUTCDate()).padStart(2, '0');
+    // DD-MM-YYYY format
+    const dmy = cleaned.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
 
-      return `${year}-${month}-${day}`;
+    // DD-MM-YY format
+    const dmy2 = cleaned.match(/^(\d{2})-(\d{2})-(\d{2})$/);
+    if (dmy2) {
+      const yr = parseInt(dmy2[3]);
+      const fullYear = yr > 50 ? `19${dmy2[3]}` : `20${dmy2[3]}`;
+      return `${fullYear}-${dmy2[2]}-${dmy2[1]}`;
     }
 
-    return null;
-  } catch {
-    return null;
+    const d = new Date(cleaned);
+    return isNaN(d) ? null : d.toISOString().slice(0, 10);
   }
+
+  if (typeof value === "number") {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const date = new Date(excelEpoch.getTime() + value * 86400000);
+    return date.toISOString().slice(0, 10);
+  }
+
+  return null;
 };
 
-export const parseMemberData = (row) => ({
-  folioNumber: row['Folio No.'] || row['Folio No'] || null,
-  gender: row['gender'] || row['Gender'] || 'Male',
-  name: row['Name'] || null,
-  email: row['Email ID'] || row['Email'] || null,
-  phone: row['PHONE NUMBER'] || row['Phone'] || '0000000000',
-  address: row['ADDRESS WITH PIN CODE'] || row['Address'] || null,
-  pinCode: row['PIN CODE'] || row['Pin Code'] || null,
-  state: row['STATE'] || row['State'] || null,
-  chapter: row['SELECT CHAPTER'] || row['Chapter'] || null
+/* ---------------------------------------------------------
+   PARSE MEMBER DATA
+--------------------------------------------------------- */
+const parseMemberData = (row) => ({
+  folioNumber: (row.folio_number || row.folio_no || "").toString().trim() || null,
+  gender: row.gender || null,
+  name: row.name || null,
+  email: row.email || null,
+  phone: (row.phone_number || row.phone || "").toString().trim() || "0000000000",
+  address: row.address || null,
+  pinCode: row.pin_code || null,
+  state: row.state || null,
+  chapter: row.chapter || null,
+  dob: parseExcelDate(row.dob),
+  age: row.age ? parseInt(row.age) : null
 });
 
-export const parsePaymentData = (row) => {
+/* ---------------------------------------------------------
+   PARSE PAYMENT DATA (YEARS 21–28)
+--------------------------------------------------------- */
+const parsePaymentData = (row) => {
   const payments = {};
 
-  console.log('\n🔍 PARSING PAYMENT ROW:', row['Folio No.'] || row['Folio No']);
+  const find = (prefix, yr) => {
+    const keys = Object.keys(row);
 
-  const getColumn = (patterns, year) => {
-    console.log(`  🔍 Looking for year ${year} in patterns:`, patterns);
-    for (const key of patterns) {
-      if (row.hasOwnProperty(key) && row[key] !== null && row[key] !== undefined && row[key] !== '') {
-        console.log(`    ✅ FOUND "${key}" = ${row[key]}`);
-        return row[key];
+    // handle both fee_period21 and fee_period_21
+    const variants = [
+      `${prefix}${yr}`,
+      `${prefix}_${yr}`
+    ];
+
+    for (const key of keys) {
+      for (const v of variants) {
+        if (key === v || key.includes(v)) return row[key];
       }
     }
-    console.log(`    ❌ NOT FOUND`);
     return null;
   };
 
-  // Try EVERY possible column name variation
-  const amountKeys = year => [
-    `Amount${year}`,           // Amount21
-    `Amount ${year}`,          // Amount 21
-    `amount${year}`,           // amount21
-    `amount_${year}`,          // amount_21
-    `AMOUNT${year}`,           // AMOUNT21
-    `Amount${year-2000}`,      // Amount1 (if year is 2021)
-    `Fee Amount${year}`,       // Fee Amount21
-    `Amount_${year}`,          // Amount_21
-  ];
-
-  const idKeys = year => [
-    `Payment ID${year}`,       // Payment ID21
-    `Payment ID ${year}`,      // Payment ID 21
-    `PaymentID${year}`,        // PaymentID21
-    `payment_id_${year}`,      // payment_id_21
-    `payment_id${year}`,       // payment_id21
-    `Payment_ID${year}`,       // Payment_ID21
-  ];
-
-  const dateKeys = year => [
-    `Date${year}`,             // Date21
-    `Date ${year}`,            // Date 21
-    `Date of Payment${year}`,  // Date of Payment21
-    `Payment Date${year}`,     // Payment Date21
-    `payment_date_${year}`,    // payment_date_21
-    `payment_date${year}`,     // payment_date21
-    `Date_${year}`,            // Date_21
-  ];
-
   for (let yr = 21; yr <= 28; yr++) {
-    const fullYear = 2000 + yr;
-    payments[`period_${yr}`] = `20${yr}-20${yr + 1}`;
-    
-    const amountValue = getColumn(amountKeys(yr), yr);
-    const paymentIdValue = getColumn(idKeys(yr), yr);
-    const dateValue = getColumn(dateKeys(yr), yr);
-    
-    payments[`amount_${yr}`] = parseAmount(amountValue);
-    payments[`payment_id_${yr}`] = paymentIdValue;
-    payments[`payment_date_${yr}`] = parseExcelDate(dateValue);
-    
-    console.log(`  Period ${yr} RESULT:`, {
-      amount: payments[`amount_${yr}`],
-      payment_id: payments[`payment_id_${yr}`],
-      date: payments[`payment_date_${yr}`]
-    });
+    const rawPeriod = find("fee_period", yr) || find("period", yr);
+    const isValidPeriod = rawPeriod && rawPeriod.toLowerCase() !== 'new member';
+    payments[`period_${yr}`] = isValidPeriod ? rawPeriod : `20${yr}-20${yr + 1}`;
+
+    payments[`amount_${yr}`] = parseAmount(find("amount", yr));
+
+    const rawPaymentId = find("payment_id", yr);
+    payments[`payment_id_${yr}`] =
+      rawPaymentId && rawPaymentId.toLowerCase() !== 'new member'
+        ? rawPaymentId
+        : null;
+
+    const rawDate = find("payment_date", yr) || find("date", yr);
+    payments[`payment_date_${yr}`] = parseExcelDate(rawDate);
   }
 
   return payments;
 };
 
+
+/* ---------------------------------------------------------
+   ENSURE dob AND age COLUMNS EXIST
+--------------------------------------------------------- */
+const ensureColumns = async () => {
+  try {
+    const [columns] = await db.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'members_with_payments'`
+    );
+
+    const existingCols = columns.map(c => c.COLUMN_NAME || c.column_name);
+
+    if (!existingCols.includes('dob')) {
+      await db.query(
+        `ALTER TABLE members_with_payments ADD COLUMN dob DATE NULL AFTER chapter`
+      );
+      console.log('✅ Added missing column: dob');
+    }
+
+    if (!existingCols.includes('age')) {
+      await db.query(
+        `ALTER TABLE members_with_payments ADD COLUMN age INT NULL AFTER dob`
+      );
+      console.log('✅ Added missing column: age');
+    }
+  } catch (err) {
+    console.error('⚠️ ensureColumns error:', err.message);
+  }
+};
+
+
+/* ---------------------------------------------------------
+   REMOVE OLD MEMBERS NOT IN EXCEL
+--------------------------------------------------------- */
+const removeOldMembers = async (excelFolios) => {
+  try {
+    if (excelFolios.length === 0) return 0;
+
+    const [dbMembers] = await db.query(
+      "SELECT id, folio_number FROM members_with_payments"
+    );
+
+    const excelFolioSet = new Set(excelFolios);
+    const toDelete = dbMembers.filter(m => !excelFolioSet.has(m.folio_number));
+
+    if (toDelete.length > 0) {
+      const idsToDelete = toDelete.map(m => m.id);
+      await db.query(
+        `DELETE FROM members_with_payments WHERE id IN (?)`,
+        [idsToDelete]
+      );
+      console.log(`🗑️ Removed ${toDelete.length} old members not in Excel:`);
+      toDelete.forEach(m => console.log(`   - ${m.folio_number}`));
+    }
+
+    return toDelete.length;
+  } catch (err) {
+    console.error('⚠️ removeOldMembers error:', err.message);
+    return 0;
+  }
+};
+
+
+/* ---------------------------------------------------------
+   IMPORT MEMBERS (INSERT OR UPDATE + CLEANUP)
+--------------------------------------------------------- */
 export const importMembers = async (excelData) => {
+  // Auto-add dob & age columns if they don't exist
+  await ensureColumns();
+
   const results = {
     totalRows: 0,
     membersAdded: 0,
     membersUpdated: 0,
-    paymentsAdded: 0,
+    membersRemoved: 0,
     errors: 0,
     errorDetails: []
   };
 
+  // Collect all valid folio numbers from Excel for cleanup
+  const excelFolios = [];
+
   for (const row of excelData) {
-    try {
-      results.totalRows++;
-      
-      const memberData = parseMemberData(row);
-      
-      if (!memberData.folioNumber || !memberData.name || !memberData.email) {
-        results.errors++;
-        results.errorDetails.push(`Row ${results.totalRows}: Missing folio/name/email`);
-        continue;
-      }
+    results.totalRows++;
 
-      const payments = parsePaymentData(row);
+    const memberData = parseMemberData(row);
+    const payments = parsePaymentData(row);
 
-      const [existing] = await db.query(
-        'SELECT id FROM members_with_payments WHERE folio_number = ?',
-        [memberData.folioNumber]
+    if (!memberData.folioNumber || !memberData.name) {
+      results.errors++;
+      results.errorDetails.push(
+        `Row ${results.totalRows}: Missing folio or name`
       );
+      continue;
+    }
 
+    excelFolios.push(memberData.folioNumber);
+
+    const [existing] = await db.query(
+      "SELECT id FROM members_with_payments WHERE folio_number = ?",
+      [memberData.folioNumber]
+    );
+
+    const paymentFields = [];
+    const paymentValues = [];
+
+    for (let yr = 21; yr <= 28; yr++) {
+      paymentFields.push(
+        `period_${yr}`, `amount_${yr}`, `payment_id_${yr}`, `payment_date_${yr}`
+      );
+      paymentValues.push(
+        payments[`period_${yr}`],
+        payments[`amount_${yr}`],
+        payments[`payment_id_${yr}`],
+        payments[`payment_date_${yr}`]
+      );
+    }
+
+    try {
       if (existing.length > 0) {
-        await db.query(`
-          UPDATE members_with_payments SET
+        await db.query(
+          `UPDATE members_with_payments SET
             gender=?, name=?, email=?, phone=?, address=?, pin_code=?, state=?, chapter=?,
-            period_21=?, amount_21=?, payment_id_21=?, payment_date_21=?,
-            period_22=?, amount_22=?, payment_id_22=?, payment_date_22=?,
-            period_23=?, amount_23=?, payment_id_23=?, payment_date_23=?,
-            period_24=?, amount_24=?, payment_id_24=?, payment_date_24=?,
-            period_25=?, amount_25=?, payment_id_25=?, payment_date_25=?,
-            period_26=?, amount_26=?, payment_id_26=?, payment_date_26=?,
-            period_27=?, amount_27=?, payment_id_27=?, payment_date_27=?,
-            period_28=?, amount_28=?, payment_id_28=?, payment_date_28=?,
-            status='active', updated_at=NOW()
-          WHERE folio_number=?
-        `, [
-          memberData.gender, memberData.name, memberData.email, memberData.phone,
-          memberData.address, memberData.pinCode, memberData.state, memberData.chapter,
-          payments.period_21, payments.amount_21, payments.payment_id_21, payments.payment_date_21,
-          payments.period_22, payments.amount_22, payments.payment_id_22, payments.payment_date_22,
-          payments.period_23, payments.amount_23, payments.payment_id_23, payments.payment_date_23,
-          payments.period_24, payments.amount_24, payments.payment_id_24, payments.payment_date_24,
-          payments.period_25, payments.amount_25, payments.payment_id_25, payments.payment_date_25,
-          payments.period_26, payments.amount_26, payments.payment_id_26, payments.payment_date_26,
-          payments.period_27, payments.amount_27, payments.payment_id_27, payments.payment_date_27,
-          payments.period_28, payments.amount_28, payments.payment_id_28, payments.payment_date_28,
-          memberData.folioNumber
-        ]);
-        
+            dob=?, age=?,
+            ${paymentFields.map(f => `${f}=?`).join(", ")},
+            status='active',
+            updated_at=NOW()
+          WHERE folio_number=?`,
+          [
+            memberData.gender, memberData.name, memberData.email, memberData.phone,
+            memberData.address, memberData.pinCode, memberData.state, memberData.chapter,
+            memberData.dob, memberData.age,
+            ...paymentValues,
+            memberData.folioNumber
+          ]
+        );
         results.membersUpdated++;
       } else {
-        await db.query(`
-          INSERT INTO members_with_payments (
-            folio_number, gender, name, email, phone, address, pin_code, state, chapter, member_class, status,
-            period_21, amount_21, payment_id_21, payment_date_21,
-            period_22, amount_22, payment_id_22, payment_date_22,
-            period_23, amount_23, payment_id_23, payment_date_23,
-            period_24, amount_24, payment_id_24, payment_date_24,
-            period_25, amount_25, payment_id_25, payment_date_25,
-            period_26, amount_26, payment_id_26, payment_date_26,
-            period_27, amount_27, payment_id_27, payment_date_27,
-            period_28, amount_28, payment_id_28, payment_date_28
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'New', 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [
-          memberData.folioNumber, memberData.gender, memberData.name, memberData.email,
-          memberData.phone, memberData.address, memberData.pinCode, memberData.state, memberData.chapter,
-          payments.period_21, payments.amount_21, payments.payment_id_21, payments.payment_date_21,
-          payments.period_22, payments.amount_22, payments.payment_id_22, payments.payment_date_22,
-          payments.period_23, payments.amount_23, payments.payment_id_23, payments.payment_date_23,
-          payments.period_24, payments.amount_24, payments.payment_id_24, payments.payment_date_24,
-          payments.period_25, payments.amount_25, payments.payment_id_25, payments.payment_date_25,
-          payments.period_26, payments.amount_26, payments.payment_id_26, payments.payment_date_26,
-          payments.period_27, payments.amount_27, payments.payment_id_27, payments.payment_date_27,
-          payments.period_28, payments.amount_28, payments.payment_id_28, payments.payment_date_28
-        ]);
-        
+        await db.query(
+          `INSERT INTO members_with_payments (
+            folio_number, gender, name, email, phone, address, pin_code, state, chapter,
+            dob, age, member_class, status,
+            ${paymentFields.join(", ")}
+          ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New', 'active',
+            ${paymentFields.map(() => "?").join(", ")}
+          )`,
+          [
+            memberData.folioNumber, memberData.gender, memberData.name, memberData.email,
+            memberData.phone, memberData.address, memberData.pinCode, memberData.state,
+            memberData.chapter, memberData.dob, memberData.age,
+            ...paymentValues
+          ]
+        );
         results.membersAdded++;
       }
 
-      // Count payments
-      for (let yr = 21; yr <= 28; yr++) {
-        if (payments[`payment_id_${yr}`] && payments[`amount_${yr}`]) {
-          results.paymentsAdded++;
-        }
-      }
-
-    } catch (error) {
+    } catch (err) {
       results.errors++;
-      results.errorDetails.push(`Row ${results.totalRows}: ${error.message}`);
-      console.error(`❌ Error importing row ${results.totalRows}:`, error);
+      results.errorDetails.push(
+        `Row ${results.totalRows} (${memberData.folioNumber}): ${err.message}`
+      );
     }
   }
+
+  /* -------------------
+     CLEANUP: Remove members not in Excel
+  ------------------- */
+  results.membersRemoved = await removeOldMembers(excelFolios);
 
   return results;
 };

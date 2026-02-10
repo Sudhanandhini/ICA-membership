@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Filter, Edit, Trash2, RotateCcw, Loader2, Eye, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Users, Search, Filter, Edit, Trash2, RotateCcw, Loader2, Eye, AlertCircle, CheckCircle, X, Download } from 'lucide-react';
 import axios from 'axios';
 import PaymentHistoryModal from './PaymentHistoryModal';
 import EditMemberModal from './EditMemberModal';
@@ -10,7 +10,9 @@ const MembersList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [paymentFilter, setPaymentFilter] = useState('all');
+  const [genderFilter, setGenderFilter] = useState('all');
   const [selectedYear, setSelectedYear] = useState('2025-2026');
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalMembers, setTotalMembers] = useState(0);
@@ -27,7 +29,7 @@ const MembersList = () => {
 
   useEffect(() => {
     fetchMembers();
-  }, [page, statusFilter, searchTerm, paymentFilter, selectedYear]);
+  }, [page, statusFilter, searchTerm, paymentFilter, genderFilter, selectedYear]);
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -40,6 +42,11 @@ const MembersList = () => {
         limit: 20,
         search: searchTerm || undefined
       };
+
+      // Add gender filter if selected
+      if (genderFilter !== 'all') {
+        params.gender = genderFilter;
+      }
 
       // If filtering by payment status for specific year
       if (paymentFilter !== 'all') {
@@ -104,8 +111,41 @@ const MembersList = () => {
   const clearFilters = () => {
     setSearchTerm('');
     setPaymentFilter('all');
+    setGenderFilter('all');
     setStatusFilter('active');
     setPage(1);
+  };
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+
+      if (genderFilter !== 'all') params.append('gender', genderFilter);
+      if (searchTerm) params.append('search', searchTerm);
+
+      if (paymentFilter !== 'all') {
+        params.append('year', selectedYear);
+        params.append('status', paymentFilter);
+      }
+
+      const response = await axios.get(`${API_URL}/admin/members/export-excel?${params.toString()}`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Members_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to export Excel');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleSoftDelete = async (memberId, memberName) => {
@@ -152,7 +192,7 @@ const MembersList = () => {
     );
   };
 
-  const hasActiveFilters = searchTerm || paymentFilter !== 'all' || statusFilter !== 'active';
+  const hasActiveFilters = searchTerm || paymentFilter !== 'all' || statusFilter !== 'active' || genderFilter !== 'all';
 
   return (
     <div className="card">
@@ -178,7 +218,7 @@ const MembersList = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         {/* Search */}
         <div className="relative md:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -238,6 +278,23 @@ const MembersList = () => {
             <option value="unpaid">❌ Not Paid</option>
           </select>
         </div>
+
+        {/* Gender Filter */}
+        <div className="relative">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <select
+            value={genderFilter}
+            onChange={(e) => {
+              setGenderFilter(e.target.value);
+              setPage(1);
+            }}
+            className="input-field pl-10"
+          >
+            <option value="all">All Gender</option>
+            <option value="Male">👨 Male</option>
+            <option value="Female">👩 Female</option>
+          </select>
+        </div>
       </div>
 
       {/* Active Filters Summary */}
@@ -259,6 +316,11 @@ const MembersList = () => {
               {statusFilter !== 'active' && paymentFilter === 'all' && (
                 <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
                   Status: {statusFilter}
+                </span>
+              )}
+              {genderFilter !== 'all' && (
+                <span className="px-2 py-1 bg-pink-100 text-pink-800 rounded-full text-xs">
+                  {genderFilter === 'Male' ? '👨 Male' : '👩 Female'}
                 </span>
               )}
             </div>
@@ -308,12 +370,25 @@ const MembersList = () => {
 
       {/* Results Info */}
       {!loading && (
-        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
           <p className="text-sm text-gray-700">
             <strong>Showing:</strong> {totalMembers} member(s)
             {paymentFilter !== 'all' && ` who have ${paymentFilter === 'paid' ? '✅ paid' : '❌ not paid'} for ${selectedYear}`}
+            {genderFilter !== 'all' && ` | Gender: ${genderFilter}`}
             {searchTerm && ` matching "${searchTerm}"`}
           </p>
+          <button
+            onClick={handleExportExcel}
+            disabled={exporting || totalMembers === 0}
+            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>{exporting ? 'Exporting...' : 'Export Excel'}</span>
+          </button>
         </div>
       )}
 

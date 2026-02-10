@@ -23,47 +23,29 @@ const AddMemberForm = ({ onSuccess }) => {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-  // Period configuration
-  const PERIOD_CONFIG = {
-    BASE_YEAR: 2019,
-    PERIODS_PER_YEAR: 4,
-    MONTHS_PER_PERIOD: 3
-  };
-
   // Calculate which period a member should start paying from based on join date
+  // Financial Year: Apr-Mar (e.g., Apr 2025 - Mar 2026 = Period 25 = "2025-26")
   const calculateStartingPeriod = (joinDate) => {
     const date = new Date(joinDate);
     const year = date.getFullYear();
-    const month = date.getMonth() + 1; // JavaScript months are 0-indexed
-    
-    // Calculate quarter (1-4)
-    const quarter = Math.ceil(month / PERIOD_CONFIG.MONTHS_PER_PERIOD);
-    
-    // Calculate year offset from base year
-    const yearOffset = year - PERIOD_CONFIG.BASE_YEAR;
-    
-    // Calculate period number (4 periods per year)
-    const periodNumber = (yearOffset * PERIOD_CONFIG.PERIODS_PER_YEAR) + quarter;
-    
-    return periodNumber;
+    const month = date.getMonth() + 1; // 1-12
+
+    // Financial year starts in April
+    // If month >= April (4), period = year - 2000 (e.g., Apr 2026 → period 26)
+    // If month < April (Jan-Mar), period = year - 2000 - 1 (e.g., Feb 2026 → period 25)
+    if (month >= 4) {
+      return year - 2000;
+    } else {
+      return year - 2000 - 1;
+    }
   };
 
-  // Get period name
+  // Get period name from period number
+  // Period 25 → "2025-26 (Apr 2025 - Mar 2026)"
   const getPeriodName = (periodNumber) => {
-    const periodsFromBase = periodNumber - 1;
-    const yearsFromBase = Math.floor(periodsFromBase / PERIOD_CONFIG.PERIODS_PER_YEAR);
-    const quarter = (periodsFromBase % PERIOD_CONFIG.PERIODS_PER_YEAR) + 1;
-    
-    const year = PERIOD_CONFIG.BASE_YEAR + yearsFromBase;
-    
-    const quarterNames = {
-      1: 'Q1 (Jan-Mar)',
-      2: 'Q2 (Apr-Jun)',
-      3: 'Q3 (Jul-Sep)',
-      4: 'Q4 (Oct-Dec)'
-    };
-    
-    return `${year}-${year + 1} ${quarterNames[quarter]}`;
+    const startYear = 2000 + periodNumber;
+    const endYear = startYear + 1;
+    return `${startYear}-${endYear.toString().slice(-2)} (Apr ${startYear} - Mar ${endYear})`;
   };
 
   const handleChange = (e) => {

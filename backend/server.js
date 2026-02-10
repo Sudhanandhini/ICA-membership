@@ -5,6 +5,7 @@ import db from './config/database.js';
 import memberRoutes from './routes/members.js';
 import paymentRoutes from './routes/payments.js';
 import adminRoutes from './routes/admin.js';
+import { runMigrations } from './database/migrations.js';
 
 dotenv.config();
 
@@ -107,6 +108,9 @@ const startServer = async () => {
       console.error('❌ Failed to connect to database');
       process.exit(1);
     }
+
+    // Run database migrations
+    await runMigrations();
     
     app.listen(PORT, () => {
       console.log('\n' + '='.repeat(60));

@@ -102,30 +102,29 @@ const MonthlyPaymentReport = () => {
 
   const hasActiveFilters = Object.values(filters).some(val => val !== '');
 
-  const handleExportTransactions = () => {
-    if (!reportData || !reportData.transactions) return;
+  const handleExportTransactions = async () => {
+    if (!reportData || !reportData.transactions || reportData.transactions.length === 0) return;
 
-    let csv = 'Date,Folio Number,Name,Email,Phone,Chapter,Period,Amount,Payment ID\n';
-    
-    reportData.transactions.forEach(txn => {
-      csv += `${new Date(txn.payment_date).toLocaleDateString('en-IN')},`;
-      csv += `${txn.folio_number},`;
-      csv += `"${txn.name}",`;
-      csv += `${txn.email},`;
-      csv += `${txn.phone},`;
-      csv += `${txn.chapter || 'N/A'},`;
-      csv += `${txn.period},`;
-      csv += `₹${txn.amount.toFixed(2)},`;
-      csv += `${txn.payment_id}\n`;
-    });
+    try {
+      const params = new URLSearchParams();
+      params.append('year', selectedYear);
+      if (selectedMonth) params.append('month', selectedMonth);
 
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `transactions-${selectedYear}${selectedMonth ? `-${selectedMonth}` : ''}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+      const response = await axios.get(`${API_URL}/admin/monthly-report/export-excel?${params.toString()}`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Transactions_${selectedYear}${selectedMonth ? `_${months[selectedMonth - 1]}` : ''}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to export Excel');
+    }
   };
 
   const formatDate = (dateString) => {

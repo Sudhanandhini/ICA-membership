@@ -3,8 +3,10 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import XLSX from 'xlsx';
 import db from '../config/database.js';
 import { parseExcelFile, importMembers } from '../utils/excelImportICA.js';
+import { parseExcelFile as parseExcelFileLatest, importMembersAndPayments } from '../utils/excelImportLatestMember.js';
 
 const router = express.Router();
 
@@ -130,6 +132,157 @@ router.post('/import-excel', upload.single('file'), async (req, res) => {
 });
 
 /**
+ * POST /api/admin/import-members-payments
+ * Import members and their payment data from Excel
+ * Handles Excel format with fee periods
+ */
+router.post('/import-members-payments', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded'
+      });
+    }
+
+    console.log(`\n📁 Processing file: ${req.file.originalname}`);
+    
+    const filePath = req.file.path;
+    const parseResult = parseExcelFileLatest(filePath);
+    
+    if (!parseResult.success) {
+      fs.unlinkSync(filePath);
+      return res.status(400).json({
+        success: false,
+        error: parseResult.error
+      });
+    }
+
+    // Import the data
+    const importResult = await importMembersAndPayments(parseResult.data);
+    
+    // Clean up uploaded file
+    fs.unlinkSync(filePath);
+
+    res.json({
+      success: importResult.success,
+      totalRows: importResult.totalRows,
+      membersAdded: importResult.membersAdded,
+      membersUpdated: importResult.membersUpdated,
+      paymentsAdded: importResult.paymentsAdded,
+      paymentsSkipped: importResult.paymentsSkipped,
+      errors: importResult.errors,
+      errorSummary: importResult.errors.length > 0 
+        ? `${importResult.errors.length} row(s) had errors during import`
+        : 'No errors'
+    });
+
+  } catch (error) {
+    console.error('Import error:', error);
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/admin/members2
+ * Fetch members from latest_member_with_payment table
+ */
+router.get('/members2', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    const search = req.query.search || '';
+    const status = req.query.status || '';
+    const paymentStatus = req.query.paymentStatus || '';
+    const gender = req.query.gender || '';
+
+    let query = 'SELECT lmwp.*, mwp.gender FROM latest_member_with_payment lmwp LEFT JOIN members_with_payments mwp ON lmwp.folio_number COLLATE utf8mb4_general_ci = mwp.folio_number WHERE 1=1';
+    const params = [];
+
+    if (status) {
+      query += ' AND lmwp.member_status = ?';
+      params.push(status);
+    }
+
+    if (paymentStatus === 'none') {
+      query += ' AND lmwp.payment_status IS NULL';
+    } else if (paymentStatus) {
+      query += ' AND lmwp.payment_status = ?';
+      params.push(paymentStatus);
+    }
+
+    if (gender) {
+      query += ' AND mwp.gender = ?';
+      params.push(gender);
+    }
+
+    if (search) {
+      query += ' AND (lmwp.name LIKE ? OR lmwp.folio_number LIKE ? OR lmwp.email LIKE ? OR lmwp.phone LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    query += ' ORDER BY lmwp.name ASC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const [members] = await db.query(query, params);
+
+    // Count query
+    let countQuery = 'SELECT COUNT(*) as total FROM latest_member_with_payment lmwp LEFT JOIN members_with_payments mwp ON lmwp.folio_number COLLATE utf8mb4_general_ci = mwp.folio_number WHERE 1=1';
+    const countParams = [];
+
+    if (status) {
+      countQuery += ' AND lmwp.member_status = ?';
+      countParams.push(status);
+    }
+
+    if (paymentStatus === 'none') {
+      countQuery += ' AND lmwp.payment_status IS NULL';
+    } else if (paymentStatus) {
+      countQuery += ' AND lmwp.payment_status = ?';
+      countParams.push(paymentStatus);
+    }
+
+    if (gender) {
+      countQuery += ' AND mwp.gender = ?';
+      countParams.push(gender);
+    }
+
+    if (search) {
+      countQuery += ' AND (lmwp.name LIKE ? OR lmwp.folio_number LIKE ? OR lmwp.email LIKE ? OR lmwp.phone LIKE ?)';
+      countParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    const [countResult] = await db.query(countQuery, countParams);
+    const totalMembers = countResult[0].total;
+
+    res.json({
+      success: true,
+      members,
+      pagination: {
+        page,
+        limit,
+        totalMembers,
+        totalPages: Math.ceil(totalMembers / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get members2 error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /api/admin/members
  */
 router.get('/members', async (req, res) => {
@@ -139,9 +292,15 @@ router.get('/members', async (req, res) => {
     const offset = (page - 1) * limit;
     const status = req.query.status || 'active';
     const search = req.query.search || '';
+    const gender = req.query.gender || '';
 
     let query = `SELECT * FROM members_with_payments WHERE status = ?`;
     const params = [status];
+
+    if (gender) {
+      query += ` AND gender = ?`;
+      params.push(gender);
+    }
 
     if (search) {
       query += ` AND (name LIKE ? OR folio_number LIKE ? OR email LIKE ?)`;
@@ -155,7 +314,12 @@ router.get('/members', async (req, res) => {
 
     let countQuery = `SELECT COUNT(*) as total FROM members_with_payments WHERE status = ?`;
     const countParams = [status];
-    
+
+    if (gender) {
+      countQuery += ` AND gender = ?`;
+      countParams.push(gender);
+    }
+
     if (search) {
       countQuery += ` AND (name LIKE ? OR folio_number LIKE ? OR email LIKE ?)`;
       countParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
@@ -419,15 +583,15 @@ router.get('/stats', async (req, res) => {
     `);
 
     const [revenueResult] = await db.query(`
-      SELECT 
-        COALESCE(SUM(CASE WHEN amount_21 > 0 THEN amount_21 ELSE 0 END), 0) +
-        COALESCE(SUM(CASE WHEN amount_22 > 0 THEN amount_22 ELSE 0 END), 0) +
-        COALESCE(SUM(CASE WHEN amount_23 > 0 THEN amount_23 ELSE 0 END), 0) +
-        COALESCE(SUM(CASE WHEN amount_24 > 0 THEN amount_24 ELSE 0 END), 0) +
-        COALESCE(SUM(CASE WHEN amount_25 > 0 THEN amount_25 ELSE 0 END), 0) +
-        COALESCE(SUM(CASE WHEN amount_26 > 0 THEN amount_26 ELSE 0 END), 0) +
-        COALESCE(SUM(CASE WHEN amount_27 > 0 THEN amount_27 ELSE 0 END), 0) +
-        COALESCE(SUM(CASE WHEN amount_28 > 0 THEN amount_28 ELSE 0 END), 0)
+      SELECT
+        COALESCE(SUM(CASE WHEN amount_21 > 0 AND payment_id_21 IS NOT NULL THEN amount_21 ELSE 0 END), 0) +
+        COALESCE(SUM(CASE WHEN amount_22 > 0 AND payment_id_22 IS NOT NULL THEN amount_22 ELSE 0 END), 0) +
+        COALESCE(SUM(CASE WHEN amount_23 > 0 AND payment_id_23 IS NOT NULL THEN amount_23 ELSE 0 END), 0) +
+        COALESCE(SUM(CASE WHEN amount_24 > 0 AND payment_id_24 IS NOT NULL THEN amount_24 ELSE 0 END), 0) +
+        COALESCE(SUM(CASE WHEN amount_25 > 0 AND payment_id_25 IS NOT NULL THEN amount_25 ELSE 0 END), 0) +
+        COALESCE(SUM(CASE WHEN amount_26 > 0 AND payment_id_26 IS NOT NULL THEN amount_26 ELSE 0 END), 0) +
+        COALESCE(SUM(CASE WHEN amount_27 > 0 AND payment_id_27 IS NOT NULL THEN amount_27 ELSE 0 END), 0) +
+        COALESCE(SUM(CASE WHEN amount_28 > 0 AND payment_id_28 IS NOT NULL THEN amount_28 ELSE 0 END), 0)
         as total_revenue
       FROM members_with_payments
     `);
@@ -539,6 +703,9 @@ router.get('/monthly-report', async (req, res) => {
                 id: `${member.id}-${yr}`,
                 folio_number: member.folio_number,
                 name: member.name,
+                email: member.email,
+                phone: member.phone,
+                chapter: member.chapter,
                 period: period,
                 amount: parseFloat(amount),
                 payment_id: paymentId,
@@ -566,6 +733,99 @@ router.get('/monthly-report', async (req, res) => {
 
   } catch (error) {
     console.error('Monthly report error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/monthly-report/export-excel
+ * Export monthly report transactions to Excel
+ */
+router.get('/monthly-report/export-excel', async (req, res) => {
+  try {
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+    const month = req.query.month ? parseInt(req.query.month) : null;
+
+    const [members] = await db.query('SELECT * FROM members_with_payments WHERE status = "active"');
+
+    const transactions = [];
+
+    members.forEach(member => {
+      for (let yr = 21; yr <= 28; yr++) {
+        const amount = member[`amount_${yr}`];
+        const paymentDate = member[`payment_date_${yr}`];
+        const paymentId = member[`payment_id_${yr}`];
+        const period = member[`period_${yr}`];
+
+        if (amount && amount > 0 && paymentDate && paymentId && period) {
+          const pDate = new Date(paymentDate);
+          const paymentYear = pDate.getFullYear();
+          const paymentMonth = pDate.getMonth();
+
+          if (paymentYear === year && (month === null || paymentMonth === (month - 1))) {
+            transactions.push({
+              folio_number: member.folio_number,
+              name: member.name,
+              email: member.email,
+              phone: member.phone,
+              gender: member.gender,
+              chapter: member.chapter,
+              period: period,
+              amount: parseFloat(amount),
+              payment_id: paymentId,
+              payment_date: paymentDate
+            });
+          }
+        }
+      }
+    });
+
+    transactions.sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date));
+
+    const excelData = transactions.map((txn, index) => ({
+      'S.No': index + 1,
+      'Date': new Date(txn.payment_date).toLocaleDateString('en-IN'),
+      'Folio Number': txn.folio_number,
+      'Name': txn.name,
+      'Email': txn.email || '',
+      'Phone': txn.phone || '',
+      'Gender': txn.gender || '',
+      'Chapter': txn.chapter || '',
+      'Period': txn.period,
+      'Amount': txn.amount,
+      'Payment ID': txn.payment_id
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    ws['!cols'] = [
+      { wch: 6 },  // S.No
+      { wch: 14 }, // Date
+      { wch: 15 }, // Folio
+      { wch: 30 }, // Name
+      { wch: 30 }, // Email
+      { wch: 15 }, // Phone
+      { wch: 10 }, // Gender
+      { wch: 15 }, // Chapter
+      { wch: 12 }, // Period
+      { wch: 12 }, // Amount
+      { wch: 25 }, // Payment ID
+    ];
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const sheetTitle = month ? `${monthNames[month - 1]}_${year}` : `${year}`;
+    XLSX.utils.book_append_sheet(wb, ws, sheetTitle.substring(0, 31));
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    const filename = `Transactions_${sheetTitle}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+
+  } catch (error) {
+    console.error('Export monthly report Excel error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -620,9 +880,9 @@ router.get('/yearly-report', async (req, res) => {
  */
 router.get('/members/payment-status', async (req, res) => {
   try {
-    const { year, status, page = 1, limit = 20, search = '' } = req.query;
+    const { year, status, page = 1, limit = 20, search = '', gender = '' } = req.query;
     const offset = (page - 1) * limit;
-    
+
     // Convert year format: both "2021-2022" and "2021-22" should work
     let normalizedYear = year;
     if (year && year.includes('-')) {
@@ -632,18 +892,18 @@ router.get('/members/payment-status', async (req, res) => {
         normalizedYear = `${parts[0]}-${parts[1].slice(-2)}`;
       }
     }
-    
+
     const yearToPeriod = {
       '2021-22': 21, '2022-23': 22, '2023-24': 23, '2024-25': 24,
       '2025-26': 25, '2026-27': 26, '2027-28': 27, '2028-29': 28
     };
 
     const periodNum = yearToPeriod[normalizedYear];
-    
+
     if (!periodNum) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid year format. Expected format: 2021-22 or 2021-2022' 
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid year format. Expected format: 2021-22 or 2021-2022'
       });
     }
 
@@ -657,6 +917,11 @@ router.get('/members/payment-status', async (req, res) => {
       query += ` AND ${amountCol} > 0 AND ${paymentIdCol} IS NOT NULL`;
     } else if (status === 'unpaid') {
       query += ` AND ${amountCol} > 0 AND ${paymentIdCol} IS NULL`;
+    }
+
+    if (gender) {
+      query += ` AND gender = ?`;
+      params.push(gender);
     }
 
     if (search) {
@@ -679,6 +944,11 @@ router.get('/members/payment-status', async (req, res) => {
       countQuery += ` AND ${amountCol} > 0 AND ${paymentIdCol} IS NULL`;
     }
 
+    if (gender) {
+      countQuery += ` AND gender = ?`;
+      countParams.push(gender);
+    }
+
     if (search) {
       countQuery += ` AND (name LIKE ? OR folio_number LIKE ? OR email LIKE ?)`;
       const searchParam = `%${search}%`;
@@ -697,7 +967,7 @@ router.get('/members/payment-status', async (req, res) => {
         totalMembers: total,
         totalPages: Math.ceil(total / limit)
       },
-      filters: { year: normalizedYear, status, search }
+      filters: { year: normalizedYear, status, search, gender }
     });
 
   } catch (error) {
@@ -767,4 +1037,148 @@ router.put('/members/update-status-by-payment', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+/**
+ * GET /api/admin/members/export-excel
+ * Export filtered members to Excel
+ */
+router.get('/members/export-excel', async (req, res) => {
+  try {
+    const { year, status, search = '', gender = '' } = req.query;
+
+    // Convert year format
+    let normalizedYear = year;
+    if (year && year.includes('-')) {
+      const parts = year.split('-');
+      if (parts[1].length === 4) {
+        normalizedYear = `${parts[0]}-${parts[1].slice(-2)}`;
+      }
+    }
+
+    const yearToPeriod = {
+      '2021-22': 21, '2022-23': 22, '2023-24': 23, '2024-25': 24,
+      '2025-26': 25, '2026-27': 26, '2027-28': 27, '2028-29': 28
+    };
+
+    let query, params = [];
+    let sheetTitle = 'Members';
+
+    if (status === 'paid' || status === 'unpaid') {
+      const periodNum = yearToPeriod[normalizedYear];
+      if (!periodNum) {
+        return res.status(400).json({ success: false, error: 'Invalid year format' });
+      }
+
+      const amountCol = `amount_${periodNum}`;
+      const paymentIdCol = `payment_id_${periodNum}`;
+
+      query = 'SELECT * FROM members_with_payments WHERE 1=1';
+
+      if (status === 'paid') {
+        query += ` AND ${amountCol} > 0 AND ${paymentIdCol} IS NOT NULL`;
+        sheetTitle = `Paid_${normalizedYear}`;
+      } else {
+        query += ` AND ${amountCol} > 0 AND ${paymentIdCol} IS NULL`;
+        sheetTitle = `Not_Paid_${normalizedYear}`;
+      }
+    } else {
+      query = 'SELECT * FROM members_with_payments WHERE 1=1';
+    }
+
+    if (gender) {
+      query += ` AND gender = ?`;
+      params.push(gender);
+      sheetTitle += `_${gender}`;
+    }
+
+    if (search) {
+      query += ` AND (name LIKE ? OR folio_number LIKE ? OR email LIKE ?)`;
+      const searchParam = `%${search}%`;
+      params.push(searchParam, searchParam, searchParam);
+    }
+
+    query += ` ORDER BY folio_number ASC`;
+
+    const [members] = await db.query(query, params);
+
+    // Build Excel data with payment history for all years
+    const excelData = members.map((m, index) => {
+      const row = {
+        'S.No': index + 1,
+        'Folio Number': m.folio_number,
+        'Name': m.name,
+        'Email': m.email,
+        'Phone': m.phone,
+        'Gender': m.gender || '',
+        'Address': m.address || '',
+        'Pin Code': m.pin_code || '',
+        'State': m.state || '',
+        'Chapter': m.chapter || '',
+        'Status': m.status
+      };
+
+      // Add payment history for each year period (21-28)
+      for (let yr = 21; yr <= 28; yr++) {
+        const periodName = `${2000 + yr}-${(2001 + yr).toString().slice(-2)}`;
+        const amount = m[`amount_${yr}`];
+        const paymentId = m[`payment_id_${yr}`];
+        const paymentDate = m[`payment_date_${yr}`];
+
+        let paymentStatus;
+        if (amount === 0 || amount === '0.00') {
+          paymentStatus = 'N/A';
+        } else if (paymentId && amount && parseFloat(amount) > 0) {
+          paymentStatus = 'Paid';
+        } else if (amount && parseFloat(amount) > 0) {
+          paymentStatus = 'Not Paid';
+        } else {
+          paymentStatus = '-';
+        }
+
+        row[`${periodName} Amount`] = amount && parseFloat(amount) > 0 ? parseFloat(amount) : '';
+        row[`${periodName} Status`] = paymentStatus;
+        row[`${periodName} Date`] = paymentDate ? new Date(paymentDate).toLocaleDateString('en-IN') : '';
+      }
+
+      return row;
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 6 },  // S.No
+      { wch: 15 }, // Folio
+      { wch: 30 }, // Name
+      { wch: 30 }, // Email
+      { wch: 15 }, // Phone
+      { wch: 10 }, // Gender
+      { wch: 35 }, // Address
+      { wch: 10 }, // Pin Code
+      { wch: 15 }, // State
+      { wch: 15 }, // Chapter
+      { wch: 10 }, // Status
+      // Payment columns for each year (3 cols per year x 8 years)
+      ...Array.from({ length: 8 }, () => [
+        { wch: 12 }, // Amount
+        { wch: 10 }, // Status
+        { wch: 12 }, // Date
+      ]).flat()
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, sheetTitle.substring(0, 31));
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    const filename = `Members_Report_${sheetTitle}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+
+  } catch (error) {
+    console.error('Export Excel error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

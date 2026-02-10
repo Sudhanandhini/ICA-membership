@@ -1,5 +1,6 @@
 import express from 'express';
 import db from '../config/database.js';
+import { generateOTP, maskEmail, storeOTP, verifyOTP, sendOTPEmail } from '../utils/otpService.js';
 
 const router = express.Router();
 
@@ -430,6 +431,101 @@ router.post('/create', async (req, res) => {
       success: false,
       message: 'Failed to create member',
       error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/members/send-otp
+ * Send OTP to member's registered email
+ */
+router.post('/send-otp', async (req, res) => {
+  try {
+    const { memberId } = req.body;
+
+    if (!memberId) {
+      return res.status(400).json({ success: false, error: 'Member ID is required' });
+    }
+
+    const [members] = await db.query(
+      'SELECT id, name, email FROM members_with_payments WHERE id = ? AND status = "active"',
+      [memberId]
+    );
+
+    if (members.length === 0) {
+      return res.status(404).json({ success: false, error: 'Member not found' });
+    }
+
+    const member = members[0];
+
+    if (!member.email) {
+      return res.status(400).json({ success: false, error: 'No email address found for this member' });
+    }
+
+    const otp = generateOTP();
+    storeOTP(member.email, otp);
+
+    await sendOTPEmail(member.email, member.name, otp);
+
+    console.log(`OTP sent to ${maskEmail(member.email)} for member ${member.name}`);
+
+    res.json({
+      success: true,
+      message: 'OTP sent successfully',
+      email: maskEmail(member.email)
+    });
+
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to send OTP'
+    });
+  }
+});
+
+/**
+ * POST /api/members/verify-otp
+ * Verify OTP and return member data
+ */
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { memberId, otp } = req.body;
+
+    if (!memberId || !otp) {
+      return res.status(400).json({ success: false, error: 'Member ID and OTP are required' });
+    }
+
+    const [members] = await db.query(
+      'SELECT * FROM members_with_payments WHERE id = ? AND status = "active"',
+      [memberId]
+    );
+
+    if (members.length === 0) {
+      return res.status(404).json({ success: false, error: 'Member not found' });
+    }
+
+    const member = members[0];
+    const result = verifyOTP(member.email, otp);
+
+    if (!result.valid) {
+      return res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+
+    res.json({
+      success: true,
+      verified: true,
+      member: member
+    });
+
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to verify OTP'
     });
   }
 });
