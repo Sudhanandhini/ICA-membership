@@ -9,9 +9,13 @@ const api = axios.create({
   },
 });
 
-// Request interceptor
+// Request interceptor - attach admin token if available
 api.interceptors.request.use(
   (config) => {
+    const token = localStorage.getItem('adminToken');
+    if (token && config.url.startsWith('/admin')) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {
@@ -43,6 +47,12 @@ export const paymentAPI = {
   initiate: (data) => api.post('/payments/initiate', data),
   verify: (data) => api.post('/payments/verify', data),
   getStatus: (memberId) => api.get(`/payments/status/${memberId}`),
+};
+
+// Admin APIs
+export const adminAPI = {
+  login: (username, password) => api.post('/admin/login', { username, password }),
+  verifyToken: () => api.get('/admin/verify-token'),
 };
 
 // Razorpay payment handler

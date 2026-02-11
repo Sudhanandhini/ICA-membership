@@ -4,8 +4,150 @@ import { formatCurrency, formatMembershipYear, formatDateTime } from '../utils/h
 
 const PaymentSuccess = ({ paymentData, onReset }) => {
   const handleDownloadReceipt = () => {
-    // In a real application, this would generate a PDF receipt
-    alert('Receipt download functionality would be implemented here');
+    const payment = paymentData?.payment || {};
+    const member = paymentData?.member || {};
+    const activatedYears = paymentData?.activatedYears || [];
+    const paymentDate = payment.date ? new Date(payment.date).toLocaleDateString('en-IN', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    }) : new Date().toLocaleDateString('en-IN', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+    const paymentTime = payment.date ? new Date(payment.date).toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit'
+    }) : new Date().toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    const yearsHtml = activatedYears.map(year => {
+      const start = new Date(year.start).getFullYear();
+      const end = new Date(year.end).getFullYear();
+      return `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">Apr ${start} - Mar ${end}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;">Paid</td></tr>`;
+    }).join('');
+
+    const receiptHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Payment Receipt - ${payment.id || ''}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; padding: 40px; background: #fff; }
+          .receipt { max-width: 600px; margin: 0 auto; border: 2px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+          .header h1 { font-size: 22px; margin-bottom: 4px; }
+          .header p { font-size: 13px; opacity: 0.9; }
+          .success-badge { background: #dcfce7; color: #166534; display: inline-block; padding: 6px 20px; border-radius: 20px; font-weight: 600; font-size: 14px; margin: 20px 0 0; }
+          .body { padding: 30px; }
+          .section { margin-bottom: 24px; }
+          .section-title { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 2px solid #f3f4f6; padding-bottom: 6px; }
+          .detail-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+          .detail-row .label { color: #6b7280; }
+          .detail-row .value { font-weight: 600; color: #1f2937; }
+          .amount-box { background: #f0fdf4; border: 2px solid #bbf7d0; border-radius: 8px; padding: 16px; text-align: center; margin: 16px 0; }
+          .amount-box .amount { font-size: 28px; font-weight: 700; color: #166534; }
+          .amount-box .label { font-size: 12px; color: #4ade80; margin-top: 2px; }
+          table { width: 100%; border-collapse: collapse; font-size: 14px; }
+          table th { background: #f9fafb; padding: 8px 12px; text-align: left; font-size: 12px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb; }
+          table th:last-child { text-align: right; }
+          .footer { background: #f9fafb; padding: 20px 30px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
+          .footer p { margin: 4px 0; }
+          @media print {
+            body { padding: 0; }
+            .receipt { border: none; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="header">
+            <h1>Membership Payment Receipt</h1>
+            <p>Indian Chartered Accountants Association</p>
+            <div class="success-badge">Payment Successful</div>
+          </div>
+          <div class="body">
+            <div class="section">
+              <div class="section-title">Transaction Details</div>
+              <div class="detail-row">
+                <span class="label">Transaction ID</span>
+                <span class="value">${payment.id || 'N/A'}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Date</span>
+                <span class="value">${paymentDate}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Time</span>
+                <span class="value">${paymentTime}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Payment Method</span>
+                <span class="value" style="text-transform:capitalize;">${payment.method || 'Online'}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Status</span>
+                <span class="value" style="color:#166534;">${payment.status || 'Success'}</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Member Information</div>
+              <div class="detail-row">
+                <span class="label">Name</span>
+                <span class="value">${member.name || 'N/A'}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Folio Number</span>
+                <span class="value">${member.folio_number || 'N/A'}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Email</span>
+                <span class="value">${member.email || 'N/A'}</span>
+              </div>
+            </div>
+
+            ${activatedYears.length > 0 ? `
+            <div class="section">
+              <div class="section-title">Activated Membership Years</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Period</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${yearsHtml}
+                </tbody>
+              </table>
+            </div>
+            ` : ''}
+
+            <div class="amount-box">
+              <div class="amount">${formatCurrency(payment.amount)}</div>
+              <div class="label">Total Amount Paid</div>
+            </div>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} Sunsys Technologies Pvt Ltd. All rights reserved.</p>
+            <p>This is a computer-generated receipt and does not require a signature.</p>
+          </div>
+        </div>
+
+        <div class="no-print" style="text-align:center;margin-top:24px;">
+          <button onclick="window.print()" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+            Print / Save as PDF
+          </button>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const receiptWindow = window.open('', '_blank');
+    if (receiptWindow) {
+      receiptWindow.document.write(receiptHtml);
+      receiptWindow.document.close();
+    }
   };
 
   return (

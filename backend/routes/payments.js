@@ -1,8 +1,103 @@
 import express from 'express';
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
 import db from '../config/database.js';
 import { createRazorpayOrder, verifyRazorpaySignature } from '../config/razorpay.js';
 
+dotenv.config();
+
 const router = express.Router();
+
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.EMAIL_PORT) || 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
+  }
+});
+
+/**
+ * Send payment confirmation emails to member and admin
+ */
+async function sendPaymentEmails(member, paymentDetails) {
+  const { paymentId, amount, periods, paymentDate } = paymentDetails;
+  const periodsList = periods.join(', ');
+
+  // Email to member
+  const memberMail = {
+    from: `"Membership Portal" <${process.env.EMAIL_USER}>`,
+    to: member.email,
+    subject: 'Payment Confirmation - Membership Portal',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 25px; border-radius: 12px 12px 0 0; text-align: center;">
+          <div style="font-size: 40px; margin-bottom: 8px;">&#9989;</div>
+          <h1 style="color: white; margin: 0; font-size: 22px;">Payment Successful</h1>
+        </div>
+        <div style="background: #ffffff; padding: 25px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <p style="color: #374151; font-size: 16px;">Dear <strong>${member.name}</strong>,</p>
+          <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+            Your membership payment has been received successfully. Here are the details:
+          </p>
+          <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Folio Number</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${member.folio_number}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Amount Paid</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">&#8377;${amount}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Period(s)</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${periodsList}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Payment Date</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${paymentDate}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Transaction ID</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${paymentId}</td></tr>
+          </table>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;" />
+          <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+            Thank you for your payment.<br/>Membership Portal Team
+          </p>
+        </div>
+      </div>
+    `
+  };
+
+  // Email to admin
+  const adminMail = {
+    from: `"Membership Portal" <${process.env.EMAIL_USER}>`,
+    to: process.env.ADMIN_EMAIL || process.env.EMAIL_USER,
+    subject: `Payment Received - ${member.name} (${member.folio_number})`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #1e46c9 0%, #2563eb 100%); padding: 25px; border-radius: 12px 12px 0 0; text-align: center;">
+          <div style="font-size: 40px; margin-bottom: 8px;">&#128176;</div>
+          <h1 style="color: white; margin: 0; font-size: 22px;">New Payment Received</h1>
+        </div>
+        <div style="background: #ffffff; padding: 25px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Member Name</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${member.name}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Folio Number</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${member.folio_number}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Email</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${member.email}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Phone</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${member.phone || '-'}</td></tr>
+            <tr style="background: #f0fdf4;"><td style="padding: 8px; color: #6b7280; font-size: 14px;">Amount Paid</td><td style="padding: 8px; color: #059669; font-size: 16px; font-weight: 700; text-align: right;">&#8377;${amount}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Period(s)</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${periodsList}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Payment Date</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${paymentDate}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Transaction ID</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${paymentId}</td></tr>
+          </table>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    await transporter.sendMail(memberMail);
+    console.log(`[Payment Email] Confirmation sent to member: ${member.email}`);
+  } catch (err) {
+    console.error(`[Payment Email] Failed to send to member: ${err.message}`);
+  }
+
+  try {
+    await transporter.sendMail(adminMail);
+    console.log(`[Payment Email] Notification sent to admin: ${adminMail.to}`);
+  } catch (err) {
+    console.error(`[Payment Email] Failed to send to admin: ${err.message}`);
+  }
+}
 
 /**
  * GET /api/payments/history/:memberId
@@ -89,15 +184,31 @@ router.post('/calculate', async (req, res) => {
     const paymentStatus = [];
     const unpaidPeriods = [];
     
-    const startingPeriod = member.starting_period || 21;
+    // Find earliest period with payment data
+    let earliestPaidPeriod = null;
+    for (let yr = 21; yr <= 28; yr++) {
+      if (member[`amount_${yr}`] !== null && member[`payment_id_${yr}`] !== null) {
+        earliestPaidPeriod = yr;
+        break;
+      }
+    }
+
+    // Use the earlier of starting_period or earliest paid period
+    const storedStarting = member.starting_period || 21;
+    const effectiveStarting = earliestPaidPeriod !== null
+      ? Math.min(storedStarting, earliestPaidPeriod)
+      : storedStarting;
+
     for (let yr = 21; yr <= 28; yr++) {
       const period = member[`period_${yr}`] || `20${yr}-20${yr + 1}`;
       const amount = member[`amount_${yr}`];
       const paymentId = member[`payment_id_${yr}`];
       const paymentDate = member[`payment_date_${yr}`];
 
-      if (yr < startingPeriod) {
-        // Before joining: mark as N/A for frontend
+      const isPaid = amount !== null && paymentId !== null;
+
+      // Before effective starting period: mark as N/A
+      if (yr < effectiveStarting) {
         paymentStatus.push({
           period: period,
           year: `20${yr}`,
@@ -109,12 +220,10 @@ router.post('/calculate', async (req, res) => {
         continue;
       }
 
-      const isPaid = amount !== null && paymentId !== null;
-
       paymentStatus.push({
         period: period,
         year: `20${yr}`,
-        amount: amount || 1200,
+        amount: amount || 1,
         paymentId: paymentId,
         paymentDate: paymentDate,
         status: isPaid ? 'paid' : 'unpaid'
@@ -129,13 +238,13 @@ router.post('/calculate', async (req, res) => {
           unpaidPeriods.push({
             period: period,
             year: `20${yr}`,
-            amount: 1200
+            amount: 1
           });
         }
       }
     }
 
-    const totalDue = unpaidPeriods.length * 1200;
+    const totalDue = unpaidPeriods.length * 1;
 
     console.log('Unpaid periods:', unpaidPeriods.length);
     console.log('Total due:', totalDue);
@@ -159,7 +268,7 @@ router.post('/calculate', async (req, res) => {
         description: `Pay all ${unpaidPeriods.length} year(s) at once`,
         yearsCount: unpaidPeriods.length,
         periods: unpaidPeriods.map(p => p.year),
-        totalAmount: unpaidPeriods.length * 1200,
+        totalAmount: unpaidPeriods.length * 1,
         years: unpaidPeriods.map(p => p.period)
       });
 
@@ -172,36 +281,14 @@ router.post('/calculate', async (req, res) => {
           description: `First ${yearsCount} year(s): ${selectedPeriods.map(p => p.period).join(', ')}`,
           yearsCount: yearsCount,
           periods: selectedPeriods.map(p => p.year),
-          totalAmount: yearsCount * 1200,
+          totalAmount: yearsCount * 1,
           years: selectedPeriods.map(p => p.period),
           remaining: unpaidPeriods.length - yearsCount
         });
       }
     } else {
-      // Member has no outstanding dues - offer future payment plans (2026 onwards)
-      paymentOptions = {
-        type: 'future',
-        available: true,
-        options: [
-          {
-            id: 'plan_1year',
-            name: '1 Year Plan',
-            description: 'Single year membership (2026-2027)',
-            years: ['2026-2027'],
-            periods: [26],
-            totalAmount: 1200
-          },
-          {
-            id: 'plan_3year',
-            name: '3 Year Plan (2026-2029)',
-            description: 'Multi-year commitment: 2026-2027, 2027-2028, 2028-2029',
-            years: ['2026-2027', '2027-2028', '2028-2029'],
-            periods: [26, 27, 28],
-            totalAmount: 3400,
-            savings: (1200 * 3) - 3400
-          }
-        ]
-      };
+      // Member has no outstanding dues - no payment needed
+      paymentOptions = null;
     }
 
     res.json({
@@ -213,7 +300,7 @@ router.post('/calculate', async (req, res) => {
         paymentStatus: paymentStatus,
         unpaidPeriods: unpaidPeriods,
         yearsOwed: unpaidPeriods.length,
-        amountPerYear: 1200,
+        amountPerYear: 1,
         totalDue: totalDue,
         canPay: unpaidPeriods.length > 0,
         paymentOptions: paymentOptions
@@ -306,35 +393,120 @@ router.post('/initiate', async (req, res) => {
 
 /**
  * POST /api/payments/verify
- * Verify Razorpay payment callback
+ * Verify Razorpay payment callback and update member payment records
  */
 router.post('/verify', async (req, res) => {
   try {
     const {
       razorpay_order_id,
       razorpay_payment_id,
-      razorpay_signature
+      razorpay_signature,
+      memberId,
+      periods,
+      totalAmount
     } = req.body;
-    
+
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({
         success: false,
         message: 'Missing payment verification data'
       });
     }
-    
-    // TODO: Verify Razorpay signature
-    // For now, assume success
-    
+
+    // Verify Razorpay signature
+    const isValid = verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+
+    if (!isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment verification failed - invalid signature'
+      });
+    }
+
+    // Update payment records in database if memberId and periods provided
+    if (memberId && periods && periods.length > 0) {
+      const paymentDate = new Date().toISOString().split('T')[0];
+      const amountPerYear = totalAmount ? totalAmount / periods.length : 1;
+
+      // Normalize periods to DB column numbers (e.g., "2024" → 24, 26 → 26)
+      const periodNums = periods.map(p => {
+        const str = p.toString();
+        return str.length === 4 ? parseInt(str.slice(-2)) : parseInt(str);
+      });
+
+      const updates = [];
+      const params = [];
+
+      periodNums.forEach(num => {
+        updates.push(`amount_${num} = ?`);
+        params.push(amountPerYear);
+        updates.push(`payment_id_${num} = ?`);
+        params.push(razorpay_payment_id);
+        updates.push(`payment_date_${num} = ?`);
+        params.push(paymentDate);
+      });
+
+      updates.push('updated_at = NOW()');
+      params.push(memberId);
+
+      await db.query(
+        `UPDATE members_with_payments SET ${updates.join(', ')} WHERE id = ?`,
+        params
+      );
+
+      console.log(`[Payment] Updated periods [${periodNums.join(',')}] for member ${memberId}`);
+
+      // Fetch member details and send emails
+      const [members] = await db.query('SELECT name, email, phone, folio_number FROM members_with_payments WHERE id = ?', [memberId]);
+      if (members.length > 0) {
+        const periodNames = periodNums.map(n => `20${n}-${n + 1}`);
+        sendPaymentEmails(members[0], {
+          paymentId: razorpay_payment_id,
+          amount: totalAmount,
+          periods: periodNames,
+          paymentDate
+        });
+
+        // Build activated years for receipt
+        const activatedYears = periodNums.map(n => ({
+          start: `20${n}-04-01`,
+          end: `20${n + 1}-03-31`
+        }));
+
+        return res.json({
+          success: true,
+          message: 'Payment verified successfully',
+          payment: {
+            id: razorpay_payment_id,
+            orderId: razorpay_order_id,
+            amount: totalAmount,
+            date: new Date().toISOString(),
+            method: 'Online',
+            status: 'Success'
+          },
+          member: {
+            name: members[0].name,
+            email: members[0].email,
+            folio_number: members[0].folio_number
+          },
+          activatedYears
+        });
+      }
+    }
+
     res.json({
       success: true,
       message: 'Payment verified successfully',
       payment: {
         id: razorpay_payment_id,
-        orderId: razorpay_order_id
+        orderId: razorpay_order_id,
+        amount: totalAmount,
+        date: new Date().toISOString(),
+        method: 'Online',
+        status: 'Success'
       }
     });
-    
+
   } catch (error) {
     console.error('Payment verification error:', error);
     res.status(500).json({

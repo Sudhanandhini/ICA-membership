@@ -8,7 +8,11 @@ const EditMemberModal = ({ member, onClose, onSuccess }) => {
     phone: '',
     email: '',
     join_date: '',
-    status: 'active'
+    status: 'active',
+    dob: '',
+    address: '',
+    folio_number: '',
+    gender: ''
   });
 
   const [paymentEdits, setPaymentEdits] = useState({});
@@ -36,7 +40,11 @@ const EditMemberModal = ({ member, onClose, onSuccess }) => {
         phone: member.phone || '',
         email: member.email || '',
         join_date: formatDateForInput(member.join_date) || '',
-        status: member.status || 'active'
+        status: member.status || 'active',
+        dob: formatDateForInput(member.dob) || '',
+        address: member.address || '',
+        folio_number: member.folio_number || '',
+        gender: member.gender || ''
       });
 
       // Initialize payment edits
@@ -93,7 +101,11 @@ const EditMemberModal = ({ member, onClose, onSuccess }) => {
         email: formData.email,
         phone: formData.phone,
         join_date: formData.join_date,
-        status: formData.status
+        status: formData.status,
+        dob: formData.dob || null,
+        address: formData.address,
+        folio_number: formData.folio_number,
+        gender: formData.gender
       };
 
       // Prepare payment data updates
@@ -215,6 +227,54 @@ const EditMemberModal = ({ member, onClose, onSuccess }) => {
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Folio Number</label>
+                  <input
+                    type="text"
+                    name="folio_number"
+                    value={formData.folio_number}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    name="dob"
+                    value={formData.dob}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                  <textarea
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
             </div>

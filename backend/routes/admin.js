@@ -4,11 +4,69 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import XLSX from 'xlsx';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
 import db from '../config/database.js';
 import { parseExcelFile, importMembers } from '../utils/excelImportICA.js';
 import { parseExcelFile as parseExcelFileLatest, importMembersAndPayments } from '../utils/excelImportLatestMember.js';
 
+dotenv.config();
+
 const router = express.Router();
+
+// ============================================
+// ADMIN AUTHENTICATION
+// ============================================
+
+const JWT_SECRET = process.env.JWT_SECRET || 'default_jwt_secret_key';
+
+/**
+ * Auth middleware - verifies JWT token
+ */
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Unauthorized - No token provided' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.admin = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, error: 'Unauthorized - Invalid token' });
+  }
+}
+
+/**
+ * POST /api/admin/login
+ * Admin login with username/password
+ */
+router.post('/login', (req, res) => {
+  const { username, password } = req.body;
+
+  const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+  if (username === adminUsername && password === adminPassword) {
+    const token = jwt.sign({ username, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ success: true, token });
+  }
+
+  return res.status(401).json({ success: false, error: 'Invalid username or password' });
+});
+
+/**
+ * GET /api/admin/verify-token
+ * Verify if the admin token is still valid
+ */
+router.get('/verify-token', authMiddleware, (req, res) => {
+  res.json({ success: true, admin: req.admin });
+});
+
+// Apply auth middleware to all routes below this point
+router.use(authMiddleware);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -623,7 +681,7 @@ router.get('/stats', async (req, res) => {
 router.put('/members/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, name, email, phone, join_date, starting_period, ...paymentData } = req.body;
+    const { status, name, email, phone, join_date, starting_period, dob, address, folio_number, gender, ...paymentData } = req.body;
 
     const updates = [];
     const params = [];
@@ -635,6 +693,10 @@ router.put('/members/:id', async (req, res) => {
     if (phone) { updates.push('phone = ?'); params.push(phone); }
     if (join_date) { updates.push('join_date = ?'); params.push(join_date); }
     if (starting_period) { updates.push('starting_period = ?'); params.push(starting_period); }
+    if (dob !== undefined) { updates.push('dob = ?'); params.push(dob); }
+    if (address !== undefined) { updates.push('address = ?'); params.push(address); }
+    if (folio_number) { updates.push('folio_number = ?'); params.push(folio_number); }
+    if (gender !== undefined) { updates.push('gender = ?'); params.push(gender); }
 
     // Handle payment data updates (amount_XX, payment_date_XX, payment_id_XX)
     Object.entries(paymentData).forEach(([key, value]) => {

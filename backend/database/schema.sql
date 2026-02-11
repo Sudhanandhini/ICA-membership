@@ -1,6 +1,6 @@
 -- Create Database
-CREATE DATABASE IF NOT EXISTS membership_payment_db;
-USE membership_payment_db;
+CREATE DATABASE IF NOT EXISTS ica_payment;
+USE ica_payment
 
 -- Members Table
 CREATE TABLE IF NOT EXISTS members (

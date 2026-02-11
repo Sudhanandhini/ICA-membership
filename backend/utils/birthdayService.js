@@ -53,44 +53,37 @@ async function sendBirthdayEmail(member) {
   await transporter.sendMail(mailOptions);
 }
 
-// Track last sent date to avoid duplicate sends on server restarts
-let lastSentDate = null;
-
 /**
- * Check for today's birthdays and send emails (once per day only)
+ * Check for today's birthdays and send emails (only once per member per year)
  */
 export async function checkAndSendBirthdayEmails() {
   try {
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0]; // "2026-02-10"
-
-    if (lastSentDate === todayStr) {
-      console.log('[Birthday] Already sent today, skipping');
-      return;
-    }
-
+    const todayStr = today.toISOString().split('T')[0];
     const month = today.getMonth() + 1;
     const day = today.getDate();
 
-    // Find active members whose birthday is today
+    // Find active members whose birthday is today AND haven't been emailed today
     const [members] = await db.query(
-      `SELECT id, name, email, dob
-       FROM members_with_payments
-       WHERE status = 'active'
-         AND dob IS NOT NULL
-         AND email IS NOT NULL
-         AND MONTH(dob) = ?
-         AND DAY(dob) = ?`,
-      [month, day]
+      `SELECT m.id, m.name, m.email, m.dob
+       FROM members_with_payments m
+       LEFT JOIN birthday_emails_log b
+         ON m.id = b.member_id AND b.sent_date = ?
+       WHERE m.status = 'active'
+         AND m.dob IS NOT NULL
+         AND m.email IS NOT NULL
+         AND MONTH(m.dob) = ?
+         AND DAY(m.dob) = ?
+         AND b.id IS NULL`,
+      [todayStr, month, day]
     );
 
     if (members.length === 0) {
-      console.log(`[Birthday] No birthdays today (${month}/${day})`);
-      lastSentDate = todayStr;
+      console.log(`[Birthday] No pending birthday emails for today (${month}/${day})`);
       return;
     }
 
-    console.log(`[Birthday] Found ${members.length} birthday(s) today!`);
+    console.log(`[Birthday] Found ${members.length} birthday(s) to email today!`);
 
     let sent = 0;
     let failed = 0;
@@ -98,6 +91,11 @@ export async function checkAndSendBirthdayEmails() {
     for (const member of members) {
       try {
         await sendBirthdayEmail(member);
+        // Log to database so this member won't get emailed again today
+        await db.query(
+          'INSERT INTO birthday_emails_log (member_id, sent_date) VALUES (?, ?)',
+          [member.id, todayStr]
+        );
         sent++;
         console.log(`[Birthday] Sent to ${member.name} (${member.email})`);
       } catch (err) {
@@ -107,7 +105,6 @@ export async function checkAndSendBirthdayEmails() {
     }
 
     console.log(`[Birthday] Done: ${sent} sent, ${failed} failed`);
-    lastSentDate = todayStr;
   } catch (error) {
     console.error('[Birthday] Error checking birthdays:', error.message);
   }

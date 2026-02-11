@@ -115,14 +115,14 @@ const startServer = async () => {
     await runMigrations();
 
     // Schedule birthday emails - runs daily at 8:00 AM
-    // cron.schedule('0 8 * * *', () => {
-    //   console.log('[Cron] Checking for birthdays...');
-    //   checkAndSendBirthdayEmails();
-    // });
-    // console.log('🎂 Birthday email cron scheduled (daily at 8:00 AM)');
+    cron.schedule('0 8 * * *', () => {
+      console.log('[Cron] Checking for birthdays...');
+      checkAndSendBirthdayEmails();
+    });
+    console.log('🎂 Birthday email cron scheduled (daily at 8:00 AM)');
 
-    // // Also check birthdays on server startup
-    // checkAndSendBirthdayEmails();
+    // Also check birthdays on server startup
+    checkAndSendBirthdayEmails();
 
     app.listen(PORT, () => {
       console.log('\n' + '='.repeat(60));
@@ -130,7 +130,7 @@ const startServer = async () => {
       console.log('='.repeat(60));
       console.log(`📍 Server URL:        http://localhost:${PORT}`);
       console.log(`🌐 Frontend URL:      ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-      console.log(`🗄️  Database:          ${process.env.DB_NAME || 'membership_payment_db'}`);
+      console.log(`🗄️  Database:          ${process.env.DB_NAME || 'ica_payment'}`);
       console.log('='.repeat(60));
       console.log('\n📚 MEMBER PORTAL ENDPOINTS:');
       console.log('   POST   /api/members/search');

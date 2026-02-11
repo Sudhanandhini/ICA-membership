@@ -18,6 +18,7 @@ const MemberPortal = () => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(null);
   const [error, setError] = useState('');
+  const [currentPaymentOption, setCurrentPaymentOption] = useState(null);
   const navigate = useNavigate();
 
   // OTP states
@@ -143,6 +144,7 @@ const MemberPortal = () => {
     }
 
     setIsProcessingPayment(true);
+    setCurrentPaymentOption(selectedOption);
     setError('');
 
     try {
@@ -154,7 +156,7 @@ const MemberPortal = () => {
       }
 
       // Prepare payment data from selected option
-      const payableYears = selectedOption.periods.map((period, idx) => ({
+      const payableYears = selectedOption.periods.map((_, idx) => ({
         year: selectedOption.years[idx],
         amount: 1200
       }));
@@ -170,7 +172,7 @@ const MemberPortal = () => {
       handleRazorpayPayment(
         orderData,
         async (response) => {
-          await verifyPayment(response);
+          await verifyPayment(response, selectedOption);
         },
         (error) => {
           setError(error.message);
@@ -183,12 +185,15 @@ const MemberPortal = () => {
     }
   };
 
-  const verifyPayment = async (razorpayResponse) => {
+  const verifyPayment = async (razorpayResponse, option) => {
     try {
       const verificationData = await paymentAPI.verify({
         razorpay_order_id: razorpayResponse.razorpay_order_id,
         razorpay_payment_id: razorpayResponse.razorpay_payment_id,
         razorpay_signature: razorpayResponse.razorpay_signature,
+        memberId: selectedMember.id,
+        periods: option.periods,
+        totalAmount: option.totalAmount
       });
 
       setPaymentSuccess(verificationData);

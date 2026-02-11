@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Upload, UserPlus, Users, FileText, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Home, Upload, UserPlus, Users, FileText, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, LogOut } from 'lucide-react';
 import axios from 'axios';
 import AddMemberForm from '../components/AddMemberForm';
 import MembersList from '../components/MembersList';
 import MonthlyPaymentReport from '../components/MonthlyPaymentReport';
+import AdminLogin from '../components/AdminLogin';
+import { adminAPI } from '../services/api';
 
 const AdminPanel = () => {
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [activeTab, setActiveTab] = useState('view-members');
   const [stats, setStats] = useState({
     activeMembers: 0,
@@ -23,18 +27,56 @@ const AdminPanel = () => {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+  // Check auth on mount
   useEffect(() => {
-    fetchStats();
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      adminAPI.verifyToken()
+        .then(() => {
+          setIsAuthenticated(true);
+          setAuthChecking(false);
+        })
+        .catch(() => {
+          localStorage.removeItem('adminToken');
+          setIsAuthenticated(false);
+          setAuthChecking(false);
+        });
+    } else {
+      setAuthChecking(false);
+    }
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchStats();
+    }
+  }, [isAuthenticated]);
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminToken');
+    setIsAuthenticated(false);
+  };
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('adminToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get(`${API_URL}/admin/stats`);
+      const response = await axios.get(`${API_URL}/admin/stats`, { headers: getAuthHeaders() });
       if (response.data.success) {
         setStats(response.data.stats);
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
+      if (error.response?.status === 401) {
+        handleLogout();
+      }
     }
   };
 
@@ -78,7 +120,8 @@ const AdminPanel = () => {
     try {
       const response = await axios.post(`${API_URL}/admin/import-excel`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data',
+          ...getAuthHeaders()
         }
       });
 
@@ -97,6 +140,18 @@ const AdminPanel = () => {
     }
   };
 
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <AdminLogin onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -107,13 +162,22 @@ const AdminPanel = () => {
               <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
               <p className="text-sm text-gray-600">Manage members and system</p>
             </div>
-            <button
-              onClick={() => navigate('/')}
-              className="btn-secondary flex items-center space-x-2"
-            >
-              <Home className="w-4 h-4" />
-              <span>Back to Home</span>
-            </button>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => navigate('/')}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <Home className="w-4 h-4" />
+                <span>Home</span>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors font-medium text-sm"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

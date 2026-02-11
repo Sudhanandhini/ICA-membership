@@ -44,41 +44,43 @@ const PaymentCalculation = ({ calculation, onProceedToPayment }) => {
         <p className="text-sm text-gray-500">{folioNumber}</p>
       </div>
 
-      {/* Payment Summary */}
-      <div className="space-y-4 mb-6">
-        <div className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <div className="flex items-center space-x-3">
-            <Calendar className="w-5 h-5 text-amber-600" />
-            <div>
-              <p className="text-sm font-medium text-amber-900">Unpaid Periods</p>
-              <p className="text-xs text-amber-700">{yearsOwed} year(s) pending</p>
+      {/* Payment Summary - only show when there are dues */}
+      {yearsOwed > 0 && (
+        <div className="space-y-4 mb-6">
+          <div className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <Calendar className="w-5 h-5 text-amber-600" />
+              <div>
+                <p className="text-sm font-medium text-amber-900">Unpaid Periods</p>
+                <p className="text-xs text-amber-700">{yearsOwed} year(s) pending</p>
+              </div>
             </div>
+            <span className="text-lg font-bold text-amber-900">{yearsOwed}</span>
           </div>
-          <span className="text-lg font-bold text-amber-900">{yearsOwed}</span>
-        </div>
 
-        <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center space-x-3">
-            <IndianRupee className="w-5 h-5 text-green-600" />
-            <div>
-              <p className="text-sm font-medium text-green-900">Amount Per Year</p>
-              <p className="text-xs text-green-700">Fixed membership fee</p>
+          <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <IndianRupee className="w-5 h-5 text-green-600" />
+              <div>
+                <p className="text-sm font-medium text-green-900">Amount Per Year</p>
+                <p className="text-xs text-green-700">Fixed membership fee</p>
+              </div>
             </div>
+            <span className="text-lg font-bold text-green-900">₹{amountPerYear.toLocaleString()}</span>
           </div>
-          <span className="text-lg font-bold text-green-900">₹{amountPerYear.toLocaleString()}</span>
-        </div>
 
-        <div className="flex items-center justify-between p-4 bg-primary-50 border-2 border-primary-200 rounded-lg">
-          <div className="flex items-center space-x-3">
-            <CreditCard className="w-5 h-5 text-primary-600" />
-            <div>
-              <p className="text-sm font-medium text-primary-900">Total Amount Due</p>
-              <p className="text-xs text-primary-700">{yearsOwed} × ₹{amountPerYear.toLocaleString()}</p>
+          <div className="flex items-center justify-between p-4 bg-primary-50 border-2 border-primary-200 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <CreditCard className="w-5 h-5 text-primary-600" />
+              <div>
+                <p className="text-sm font-medium text-primary-900">Total Amount Due</p>
+                <p className="text-xs text-primary-700">{yearsOwed} × ₹{amountPerYear.toLocaleString()}</p>
+              </div>
             </div>
+            <span className="text-2xl font-bold text-primary-900">₹{totalDue.toLocaleString()}</span>
           </div>
-          <span className="text-2xl font-bold text-primary-900">₹{totalDue.toLocaleString()}</span>
         </div>
-      </div>
+      )}
 
       {/* Unpaid Periods List */}
       {unpaidPeriods && unpaidPeriods.length > 0 && (
