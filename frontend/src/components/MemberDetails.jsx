@@ -23,13 +23,13 @@ const MemberDetails = ({ member, onClose }) => {
       </div>
 
       <div className="space-y-4">
-        <div className="bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg p-6 border border-primary-200">
-          <div className="flex items-start space-x-4">
-            <div className="flex items-center justify-center w-16 h-16 bg-white rounded-full border-2 border-primary-300">
-              <User className="w-8 h-8 text-primary-600" />
+        <div className="bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg p-3 sm:p-6 border border-primary-200">
+          <div className="flex items-start space-x-3 sm:space-x-4">
+            <div className="flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-full border-2 border-primary-300 flex-shrink-0">
+              <User className="w-6 h-6 sm:w-8 sm:h-8 text-primary-600" />
             </div>
-            <div className="flex-1">
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">{member.name}</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg sm:text-2xl font-bold text-gray-900 mb-1 truncate">{member.name}</h3>
               <div className="flex items-center space-x-2">
                 <FileText className="w-4 h-4 text-primary-600" />
                 <span className="text-sm font-medium text-primary-700">

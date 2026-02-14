@@ -6,17 +6,17 @@ const HomePage = () => {
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-blue-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-8 sm:mb-12">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-3 sm:mb-4">
             Membership Payment System
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto px-2">
             Seamless membership management with automated payment processing and sequential year validation
           </p>
         </div>
 
         {/* Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 max-w-4xl mx-auto">
           {/* Member Portal Card */}
           <a 
             href="/member-portal"
@@ -28,7 +28,7 @@ const HomePage = () => {
               </div>
               <ArrowRight className="w-6 h-6 text-gray-400 group-hover:text-primary-600 group-hover:translate-x-1 transition-all" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-3">
               Member Portal
             </h2>
             <p className="text-gray-600 mb-4">
@@ -61,7 +61,7 @@ const HomePage = () => {
               </div>
               <ArrowRight className="w-6 h-6 text-gray-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-3">
               Admin Panel
             </h2>
             <p className="text-gray-600 mb-4">
@@ -85,11 +85,11 @@ const HomePage = () => {
         </div>
 
         {/* Features Section */}
-        <div className="mt-16 max-w-4xl mx-auto">
-          <h3 className="text-2xl font-bold text-gray-900 text-center mb-8">
+        <div className="mt-8 sm:mt-16 max-w-4xl mx-auto">
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 text-center mb-6 sm:mb-8">
             Key Features
           </h3>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
             <div className="text-center p-6 bg-white rounded-xl shadow-sm">
               <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-4">
                 <Users className="w-6 h-6 text-blue-600" />
@@ -123,10 +123,11 @@ const HomePage = () => {
         </div>
 
         {/* Footer */}
-        <div className="mt-16 text-center text-sm text-gray-600">
-          <p>© 2026 Sunsys Technologies Pvt Ltd. All rights reserved.</p>
-          <p className="mt-1">Secure payment processing powered by Razorpay</p>
+        <div className="mt-8 sm:mt-16 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs sm:text-sm text-gray-600 px-2 sm:px-8">
+          <p>© 2026 Indian Cricket Association. All rights reserved.</p>
+          <p>Built By <a href="https://sunsys.in">Sunsys Technologies Pvt Ltd.</a></p>
         </div>
+
       </div>
     </div>
   );

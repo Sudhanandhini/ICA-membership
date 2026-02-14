@@ -136,13 +136,13 @@ const EditMemberModal = ({ member, onClose, onSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700">
           <div>
-            <h2 className="text-xl font-bold text-white">Edit Member</h2>
-            <p className="text-sm text-blue-100">{member.folio_number}</p>
+            <h2 className="text-lg sm:text-xl font-bold text-white">Edit Member</h2>
+            <p className="text-xs sm:text-sm text-blue-100">{member.folio_number}</p>
           </div>
           <button
             onClick={onClose}
@@ -153,24 +153,24 @@ const EditMemberModal = ({ member, onClose, onSuccess }) => {
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+        <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(95vh-160px)] sm:max-h-[calc(90vh-180px)]">
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+            <div className="mb-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
           {success && (
-            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="mb-4 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-sm text-green-700">{success}</p>
             </div>
           )}
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Member Information */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Member Information</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Member Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
@@ -281,10 +281,10 @@ const EditMemberModal = ({ member, onClose, onSuccess }) => {
 
             {/* Payment Details */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Details</h3>
-              <div className="space-y-4">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Payment Details</h3>
+              <div className="space-y-3 sm:space-y-4">
                 {periods.map(period => (
-                  <div key={period.num} className="p-4 border border-gray-200 rounded-lg">
+                  <div key={period.num} className="p-3 sm:p-4 border border-gray-200 rounded-lg">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1 uppercase">
@@ -328,17 +328,17 @@ const EditMemberModal = ({ member, onClose, onSuccess }) => {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex items-center justify-end space-x-3">
+        <div className="border-t border-gray-200 bg-gray-50 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-end space-x-2 sm:space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-3 sm:px-4 py-2 text-sm sm:text-base text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            className="px-3 sm:px-4 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
           >
             <Save className="w-4 h-4" />
             <span>{loading ? 'Saving...' : 'Save Changes'}</span>

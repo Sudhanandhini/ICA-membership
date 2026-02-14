@@ -142,18 +142,18 @@ const MonthlyPaymentReport = () => {
     <div className="space-y-6">
       {/* Monthly Report Card */}
       <div className="card">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
           <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg">
-              <Calendar className="w-6 h-6 text-green-600" />
+            <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-lg flex-shrink-0">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-gray-900">Monthly Payment Report</h3>
-              <p className="text-sm text-gray-600">View month-wise payment statistics</p>
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Monthly Payment Report</h3>
+              <p className="text-xs sm:text-sm text-gray-600">View month-wise payment statistics</p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center">
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
@@ -180,28 +180,28 @@ const MonthlyPaymentReport = () => {
         ) : reportData ? (
           <>
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
+              <div className="p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-blue-600 font-medium mb-1">Total Payments</p>
-                    <p className="text-3xl font-bold text-blue-700">
+                    <p className="text-xs sm:text-sm text-blue-600 font-medium mb-1">Total Payments</p>
+                    <p className="text-xl sm:text-3xl font-bold text-blue-700">
                       {reportData.summary.totalPayments}
                     </p>
                   </div>
-                  <TrendingUp className="w-8 h-8 text-blue-600" />
+                  <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                 </div>
               </div>
 
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-green-600 font-medium mb-1">Total Revenue</p>
-                    <p className="text-3xl font-bold text-green-700">
+                    <p className="text-xs sm:text-sm text-green-600 font-medium mb-1">Total Revenue</p>
+                    <p className="text-xl sm:text-3xl font-bold text-green-700">
                       ₹{reportData.summary.totalRevenue.toLocaleString('en-IN')}
                     </p>
                   </div>
-                  <IndianRupee className="w-8 h-8 text-green-600" />
+                  <IndianRupee className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
                 </div>
               </div>
             </div>
@@ -260,44 +260,44 @@ const MonthlyPaymentReport = () => {
             {/* Detailed Transactions Section */}
             {reportData.transactions && reportData.transactions.length > 0 && (
               <div className="border-t border-gray-200 pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-lg">
-                      <FileText className="w-5 h-5 text-purple-600" />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-purple-100 rounded-lg flex-shrink-0">
+                      <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-gray-900">
-                        Payment Transactions {selectedMonth && `- ${months[selectedMonth - 1]}`}
+                      <h4 className="text-base sm:text-lg font-semibold text-gray-900">
+                        Transactions {selectedMonth && `- ${months[selectedMonth - 1]}`}
                       </h4>
-                      <p className="text-sm text-gray-600">
-                        {reportData.transactions.length} transaction(s) found
+                      <p className="text-xs sm:text-sm text-gray-600">
+                        {reportData.transactions.length} found
                         {hasActiveFilters && ` (filtered from ${reportData.summary.totalPayments})`}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => setShowFilters(!showFilters)}
-                      className={`btn-secondary flex items-center space-x-2 ${hasActiveFilters ? 'bg-primary-100 border-primary-300' : ''}`}
+                      className={`btn-secondary flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm ${hasActiveFilters ? 'bg-primary-100 border-primary-300' : ''}`}
                     >
-                      <Filter className="w-4 h-4" />
+                      <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       <span>Filters {hasActiveFilters && `(${Object.values(filters).filter(v => v).length})`}</span>
                     </button>
                     {selectedMonth && (
                       <button
                         onClick={() => setSelectedMonth(null)}
-                        className="btn-secondary flex items-center space-x-2"
+                        className="btn-secondary flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
                       >
-                        <X className="w-4 h-4" />
-                        <span>Show All Months</span>
+                        <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <span>All Months</span>
                       </button>
                     )}
                     <button
                       onClick={handleExportTransactions}
-                      className="btn-primary flex items-center space-x-2"
+                      className="btn-primary flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
                     >
-                      <Download className="w-4 h-4" />
+                      <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       <span>Export</span>
                     </button>
                   </div>
@@ -430,44 +430,44 @@ const MonthlyPaymentReport = () => {
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Folio</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment ID</th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Folio</th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Name</th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Email</th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Phone</th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Period</th>
+                        <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Payment ID</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {reportData.transactions.map((txn, index) => (
                         <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-900 whitespace-nowrap">
                             {formatDate(txn.payment_date)}
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-900">
                             {txn.folio_number}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm text-gray-900 hidden sm:table-cell">
                             <div className="flex items-center">
                               <User className="w-4 h-4 text-gray-400 mr-2" />
                               {txn.name}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm text-gray-600 hidden lg:table-cell">
                             {txn.email}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm text-gray-600 hidden lg:table-cell">
                             {txn.phone}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm text-gray-600 hidden sm:table-cell">
                             {txn.period}
                           </td>
-                          <td className="px-4 py-3 text-sm text-right font-semibold text-green-700">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-right font-semibold text-green-700">
                             ₹{txn.amount.toLocaleString('en-IN')}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-sm text-gray-600 hidden md:table-cell">
                             <div className="flex items-center">
                               <CreditCard className="w-4 h-4 text-gray-400 mr-2" />
                               <span className="font-mono text-xs truncate max-w-xs">
@@ -494,21 +494,21 @@ const MonthlyPaymentReport = () => {
       {/* Yearly Summary Card */}
       {yearlyData.length > 0 && (
         <div className="card">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
+          <div className="flex items-center space-x-3 mb-4 sm:mb-6">
+            <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 rounded-lg flex-shrink-0">
+              <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-gray-900">Yearly Summary</h3>
-              <p className="text-sm text-gray-600">Payment trends across years</p>
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Yearly Summary</h3>
+              <p className="text-xs sm:text-sm text-gray-600">Payment trends across years</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
             {yearlyData.map((year) => (
-              <div key={year.year} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-                <p className="text-sm text-gray-600 mb-1">Year {year.year}</p>
-                <p className="text-2xl font-bold text-gray-900 mb-2">
+              <div key={year.year} className="p-3 sm:p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                <p className="text-xs sm:text-sm text-gray-600 mb-1">Year {year.year}</p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">
                   ₹{year.revenue.toLocaleString('en-IN')}
                 </p>
                 <p className="text-sm text-gray-600">

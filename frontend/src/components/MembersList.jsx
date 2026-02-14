@@ -39,7 +39,7 @@ const MembersList = () => {
       let url = `${API_URL}/admin/members`;
       let params = {
         page: page,
-        limit: 20,
+        limit: 50,
         search: searchTerm || undefined
       };
 
@@ -149,7 +149,7 @@ const MembersList = () => {
   };
 
   const handleSoftDelete = async (memberId, memberName) => {
-    if (!window.confirm(`Are you sure you want to remove ${memberName}?`)) {
+    if (!window.confirm(`Are you sure you want to set ${memberName} as inactive?`)) {
       return;
     }
 
@@ -157,7 +157,7 @@ const MembersList = () => {
       await axios.put(`${API_URL}/admin/members/${memberId}/soft-delete`);
       fetchMembers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to remove member');
+      alert(err.response?.data?.message || 'Failed to update member');
     }
   };
 
@@ -174,17 +174,13 @@ const MembersList = () => {
     }
   };
 
-  const getStatusBadge = (status, deletedAt) => {
-    if (deletedAt) {
-      return <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">Removed</span>;
-    }
-    
+  const getStatusBadge = (status) => {
     const colors = {
       active: 'bg-green-100 text-green-800',
       inactive: 'bg-yellow-100 text-yellow-800',
       removed: 'bg-red-100 text-red-800'
     };
-    
+
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
         {status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'}
@@ -196,31 +192,31 @@ const MembersList = () => {
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
         <div className="flex items-center space-x-3">
-          <div className="flex items-center justify-center w-12 h-12 bg-primary-100 rounded-lg">
-            <Users className="w-6 h-6 text-primary-600" />
+          <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-primary-100 rounded-lg flex-shrink-0">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary-600" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-gray-900">All Members</h3>
-            <p className="text-sm text-gray-600">View and manage member accounts</p>
+            <h3 className="text-base sm:text-xl font-semibold text-gray-900">All Members</h3>
+            <p className="text-xs sm:text-sm text-gray-600">View and manage member accounts</p>
           </div>
         </div>
 
-        <button
+        {/* <button
           onClick={updateStatusByPayment}
-          className="btn-primary flex items-center space-x-2"
+          className="btn-primary flex items-center justify-center space-x-2 text-xs sm:text-sm"
           disabled={loading}
         >
           <CheckCircle className="w-4 h-4" />
-          <span>Update Status by Payment</span>
-        </button>
+          <span>Update Status</span>
+        </button> */}
       </div>
 
       {/* Search and Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-4 sm:mb-6">
         {/* Search */}
-        <div className="relative md:col-span-2">
+        <div className="relative col-span-2 sm:col-span-3 lg:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
@@ -241,7 +237,7 @@ const MembersList = () => {
 
         {/* Status Filter */}
         <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Filter className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
           <select
             value={statusFilter}
             onChange={(e) => {
@@ -249,19 +245,18 @@ const MembersList = () => {
               setPaymentFilter('all');
               setPage(1);
             }}
-            className="input-field pl-10"
+            className="input-field pl-8 sm:pl-10 text-xs sm:text-sm"
             disabled={paymentFilter !== 'all'}
           >
             <option value="all">All Status</option>
-            <option value="active">Active Only</option>
-            <option value="inactive">Inactive Only</option>
-            <option value="removed">Removed Only</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </select>
         </div>
 
         {/* Payment Filter */}
         <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Filter className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
           <select
             value={paymentFilter}
             onChange={(e) => {
@@ -271,37 +266,37 @@ const MembersList = () => {
               }
               setPage(1);
             }}
-            className="input-field pl-10"
+            className="input-field pl-8 sm:pl-10 text-xs sm:text-sm"
           >
             <option value="all">All Payments</option>
-            <option value="paid">✅ Paid</option>
-            <option value="unpaid">❌ Not Paid</option>
+            <option value="paid">Paid</option>
+            <option value="unpaid">Not Paid</option>
           </select>
         </div>
 
         {/* Gender Filter */}
         <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Filter className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
           <select
             value={genderFilter}
             onChange={(e) => {
               setGenderFilter(e.target.value);
               setPage(1);
             }}
-            className="input-field pl-10"
+            className="input-field pl-8 sm:pl-10 text-xs sm:text-sm"
           >
             <option value="all">All Gender</option>
-            <option value="Male">👨 Male</option>
-            <option value="Female">👩 Female</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
           </select>
         </div>
       </div>
 
       {/* Active Filters Summary */}
       {hasActiveFilters && (
-        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-sm">
+        <div className="mb-4 p-2 sm:p-3 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
               <span className="font-medium text-gray-700">Active Filters:</span>
               {searchTerm && (
                 <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
@@ -370,17 +365,17 @@ const MembersList = () => {
 
       {/* Results Info */}
       {!loading && (
-        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
-          <p className="text-sm text-gray-700">
+        <div className="mb-4 p-2 sm:p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <p className="text-xs sm:text-sm text-gray-700">
             <strong>Showing:</strong> {totalMembers} member(s)
-            {paymentFilter !== 'all' && ` who have ${paymentFilter === 'paid' ? '✅ paid' : '❌ not paid'} for ${selectedYear}`}
-            {genderFilter !== 'all' && ` | Gender: ${genderFilter}`}
+            {paymentFilter !== 'all' && ` who have ${paymentFilter === 'paid' ? 'paid' : 'not paid'} for ${selectedYear}`}
+            {genderFilter !== 'all' && ` | ${genderFilter}`}
             {searchTerm && ` matching "${searchTerm}"`}
           </p>
           <button
             onClick={handleExportExcel}
             disabled={exporting || totalMembers === 0}
-            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            className="flex items-center space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm font-medium whitespace-nowrap self-end sm:self-auto"
           >
             {exporting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -406,73 +401,71 @@ const MembersList = () => {
       ) : (
         <>
           {/* Members Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -mx-3 sm:mx-0">
+            <table className="w-full min-w-[480px] sm:min-w-[600px]">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Folio</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Folio</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Email</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">Phone</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {members.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
-                      {paymentFilter !== 'all' 
+                    <td colSpan="6" className="px-4 py-8 text-center text-gray-500 text-sm">
+                      {paymentFilter !== 'all'
                         ? `No members ${paymentFilter} for ${selectedYear}${searchTerm ? ` matching "${searchTerm}"` : ''}`
-                        : searchTerm 
-                        ? `No members found matching "${searchTerm}"` 
+                        : searchTerm
+                        ? `No members found matching "${searchTerm}"`
                         : 'No members found'}
                     </td>
                   </tr>
                 ) : (
                   members.map((member) => (
                     <tr key={member.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{member.folio_number}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{member.name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{member.email}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{member.phone}</td>
-                      <td className="px-4 py-3 text-sm">
-                        {getStatusBadge(member.status, member.deleted_at)}
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-900">{member.folio_number}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-900">{member.name}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 hidden md:table-cell">{member.email}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 hidden sm:table-cell">{member.phone}</td>
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                        {getStatusBadge(member.status)}
                       </td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex items-center space-x-2">
+                      <td className="px-3 sm:px-4 py-2 sm:py-3 text-sm">
+                        <div className="flex items-center space-x-1 sm:space-x-2">
                           <button
                             onClick={() => setSelectedMember(member)}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
                             title="View payment history"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {member.deleted_at ? (
+                          <button
+                            onClick={() => setEditingMember(member)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                            title="Edit member"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          {member.status === 'inactive' ? (
                             <button
                               onClick={() => handleRestore(member.id, member.name)}
-                              className="p-1 text-green-600 hover:bg-green-50 rounded"
-                              title="Restore member"
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                              title="Restore to active"
                             >
                               <RotateCcw className="w-4 h-4" />
                             </button>
                           ) : (
-                            <>
-                              <button
-                                onClick={() => setEditingMember(member)}
-                                className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                                title="Edit member"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleSoftDelete(member.id, member.name)}
-                                className="p-1 text-red-600 hover:bg-red-50 rounded"
-                                title="Remove member"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </>
+                            <button
+                              onClick={() => handleSoftDelete(member.id, member.name)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                              title="Set inactive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
                       </td>

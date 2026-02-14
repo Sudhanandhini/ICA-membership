@@ -109,7 +109,7 @@ const PaymentCalculation = ({ calculation, onProceedToPayment }) => {
       {paymentStatus && paymentStatus.length > 0 && (
         <div className="mb-6">
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Payment History:</h4>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {paymentStatus.map((status, index) => {
               if (status.status === 'na') {
                 // Show blank/NA for years before joining
@@ -197,7 +197,7 @@ const PaymentCalculation = ({ calculation, onProceedToPayment }) => {
                   const option = paymentOptions.options.find(opt => opt.id === selectedPlan);
                   onProceedToPayment(option);
                 }}
-                className="w-full btn-primary py-3 text-lg font-semibold"
+                className="w-full btn-primary py-2.5 sm:py-3 text-base sm:text-lg font-semibold"
               >
                 Proceed to Payment - ₹{paymentOptions.options.find(opt => opt.id === selectedPlan)?.totalAmount.toLocaleString()}
               </button>
@@ -206,7 +206,7 @@ const PaymentCalculation = ({ calculation, onProceedToPayment }) => {
             {!selectedPlan && (
               <button
                 disabled
-                className="w-full py-3 text-lg font-semibold bg-gray-200 text-gray-500 rounded-lg cursor-not-allowed"
+                className="w-full py-2.5 sm:py-3 text-base sm:text-lg font-semibold bg-gray-200 text-gray-500 rounded-lg cursor-not-allowed"
               >
                 Select a payment option to continue
               </button>
@@ -214,7 +214,7 @@ const PaymentCalculation = ({ calculation, onProceedToPayment }) => {
 
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-xs text-blue-800">
-                <span className="font-semibold">Payment Policy:</span> All pending years must be paid sequentially. 
+                <span className="font-semibold">Payment Policy:</span> All pending years must be paid sequentially.
                 You cannot skip any year. Complete remaining balance after this payment.
               </p>
             </div>
@@ -223,7 +223,7 @@ const PaymentCalculation = ({ calculation, onProceedToPayment }) => {
           <>
             <div className="mb-4">
               <h4 className="text-sm font-semibold text-gray-700 mb-4">Choose your membership plan:</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {paymentOptions.options.map((option) => (
                   <div
                     key={option.id}

@@ -45,12 +45,12 @@ const MemberSearch = ({ onMemberSelect }) => {
   return (
     <div className="card">
       <div className="flex items-center space-x-3 mb-4">
-        <div className="flex items-center justify-center w-12 h-12 bg-primary-100 rounded-lg">
-          <Search className="w-6 h-6 text-primary-600" />
+        <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-primary-100 rounded-lg flex-shrink-0">
+          <Search className="w-5 h-5 sm:w-6 sm:h-6 text-primary-600" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Search Member</h2>
-          <p className="text-sm text-gray-600">Enter member name to get started</p>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Search Member</h2>
+          <p className="text-xs sm:text-sm text-gray-600">Enter member name to get started</p>
         </div>
       </div>
 
@@ -117,9 +117,9 @@ const MemberSearch = ({ onMemberSelect }) => {
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-900">{member.name}</h4>
                     <p className="text-sm text-gray-600">Folio: {member.folio_number}</p>
-                    <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-gray-500">
                       <span>{member.phone}</span>
-                      <span>{member.email}</span>
+                      <span className="truncate max-w-[180px] sm:max-w-none">{member.email}</span>
                     </div>
                   </div>
                 </div>

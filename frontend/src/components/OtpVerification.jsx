@@ -158,7 +158,7 @@ const OtpVerification = ({ member, maskedEmail, onVerified, onBack }) => {
         <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
           Enter Verification Code
         </label>
-        <div className="flex justify-center space-x-3">
+        <div className="flex justify-center space-x-2 sm:space-x-3">
           {otp.map((digit, index) => (
             <input
               key={index}
@@ -170,7 +170,7 @@ const OtpVerification = ({ member, maskedEmail, onVerified, onBack }) => {
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={index === 0 ? handlePaste : undefined}
-              className={`w-12 h-14 text-center text-xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+              className={`w-10 h-12 sm:w-12 sm:h-14 text-center text-lg sm:text-xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                 error ? 'border-red-300 bg-red-50' : 'border-gray-300'
               }`}
               disabled={loading}

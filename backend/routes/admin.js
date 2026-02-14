@@ -352,8 +352,15 @@ router.get('/members', async (req, res) => {
     const search = req.query.search || '';
     const gender = req.query.gender || '';
 
-    let query = `SELECT * FROM members_with_payments WHERE status = ?`;
-    const params = [status];
+    let query, params;
+
+    if (status === 'all') {
+      query = `SELECT * FROM members_with_payments WHERE status != 'removed'`;
+      params = [];
+    } else {
+      query = `SELECT * FROM members_with_payments WHERE status = ?`;
+      params = [status];
+    }
 
     if (gender) {
       query += ` AND gender = ?`;
@@ -370,8 +377,15 @@ router.get('/members', async (req, res) => {
 
     const [members] = await db.query(query, params);
 
-    let countQuery = `SELECT COUNT(*) as total FROM members_with_payments WHERE status = ?`;
-    const countParams = [status];
+    let countQuery, countParams;
+
+    if (status === 'all') {
+      countQuery = `SELECT COUNT(*) as total FROM members_with_payments WHERE status != 'removed'`;
+      countParams = [];
+    } else {
+      countQuery = `SELECT COUNT(*) as total FROM members_with_payments WHERE status = ?`;
+      countParams = [status];
+    }
 
     if (gender) {
       countQuery += ` AND gender = ?`;
@@ -719,6 +733,42 @@ router.put('/members/:id', async (req, res) => {
 
   } catch (error) {
     console.error('Update member error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/admin/members/:id/soft-delete
+ * Soft delete a member (set status to 'inactive')
+ */
+router.put('/members/:id/soft-delete', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query(
+      `UPDATE members_with_payments SET status = 'inactive', updated_at = NOW() WHERE id = ?`,
+      [id]
+    );
+    res.json({ success: true, message: 'Member set to inactive successfully' });
+  } catch (error) {
+    console.error('Soft delete error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/admin/members/:id/restore
+ * Restore a removed member (set status back to 'active')
+ */
+router.put('/members/:id/restore', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query(
+      `UPDATE members_with_payments SET status = 'active', updated_at = NOW() WHERE id = ?`,
+      [id]
+    );
+    res.json({ success: true, message: 'Member restored successfully' });
+  } catch (error) {
+    console.error('Restore member error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

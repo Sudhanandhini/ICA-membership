@@ -156,23 +156,23 @@ const AdminPanel = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
-              <p className="text-sm text-gray-600">Manage members and system</p>
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Admin Panel</h1>
+              <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Manage members and system</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <button
                 onClick={() => navigate('/')}
-                className="btn-secondary flex items-center space-x-2"
+                className="btn-secondary flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
               >
                 <Home className="w-4 h-4" />
-                <span>Home</span>
+                <span className="hidden sm:inline">Home</span>
               </button>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors font-medium text-sm"
+                className="flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors font-medium text-xs sm:text-sm"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
@@ -183,16 +183,16 @@ const AdminPanel = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <div className="card">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Active Members</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.activeMembers}</p>
+                <p className="text-xs sm:text-sm text-gray-600">Active Members</p>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900">{stats.activeMembers}</p>
               </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Users className="w-8 h-8 text-blue-600" />
+              <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
+                <Users className="w-5 h-5 sm:w-8 sm:h-8 text-blue-600" />
               </div>
             </div>
           </div>
@@ -200,25 +200,25 @@ const AdminPanel = () => {
           <div className="card">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Payments</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.successfulPayments || stats.totalPayments}</p>
+                <p className="text-xs sm:text-sm text-gray-600">Total Payments</p>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900">{stats.successfulPayments || stats.totalPayments}</p>
               </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <FileText className="w-8 h-8 text-green-600" />
+              <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
+                <FileText className="w-5 h-5 sm:w-8 sm:h-8 text-green-600" />
               </div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="card col-span-2 sm:col-span-1">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Revenue</p>
-                <p className="text-3xl font-bold text-gray-900">
+                <p className="text-xs sm:text-sm text-gray-600">Total Revenue</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   ₹{(stats.totalRevenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                 </p>
               </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <FileText className="w-8 h-8 text-purple-600" />
+              <div className="p-2 sm:p-3 bg-purple-100 rounded-lg">
+                <FileText className="w-5 h-5 sm:w-8 sm:h-8 text-purple-600" />
               </div>
             </div>
           </div>
@@ -226,53 +226,53 @@ const AdminPanel = () => {
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="flex border-b border-gray-200">
+          <div className="flex overflow-x-auto border-b border-gray-200 -mb-px">
             <button
               onClick={() => setActiveTab('excel-import')}
-              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-colors ${
+              className={`flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-6 py-2.5 sm:py-3 font-medium transition-colors whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'excel-import'
                   ? 'text-primary-600 border-b-2 border-primary-600'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <Upload className="w-5 h-5" />
-              <span>Excel Import</span>
+              <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Import</span>
             </button>
 
             <button
               onClick={() => setActiveTab('add-member')}
-              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-colors ${
+              className={`flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-6 py-2.5 sm:py-3 font-medium transition-colors whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'add-member'
                   ? 'text-primary-600 border-b-2 border-primary-600'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <UserPlus className="w-5 h-5" />
+              <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Add Member</span>
             </button>
 
             <button
               onClick={() => setActiveTab('view-members')}
-              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-colors ${
+              className={`flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-6 py-2.5 sm:py-3 font-medium transition-colors whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'view-members'
                   ? 'text-primary-600 border-b-2 border-primary-600'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <Users className="w-5 h-5" />
-              <span>View Members</span>
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Members</span>
             </button>
 
             <button
               onClick={() => setActiveTab('monthly-report')}
-              className={`flex items-center space-x-2 px-6 py-3 font-medium transition-colors ${
+              className={`flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-6 py-2.5 sm:py-3 font-medium transition-colors whitespace-nowrap text-xs sm:text-sm ${
                 activeTab === 'monthly-report'
                   ? 'text-primary-600 border-b-2 border-primary-600'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <FileText className="w-5 h-5" />
-              <span>Monthly Report</span>
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Report</span>
             </button>
           </div>
         </div>
@@ -282,13 +282,13 @@ const AdminPanel = () => {
           {/* Excel Import Tab */}
           {activeTab === 'excel-import' && (
             <div className="card">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="flex items-center justify-center w-12 h-12 bg-primary-100 rounded-lg">
-                  <Upload className="w-6 h-6 text-primary-600" />
+              <div className="flex items-center space-x-3 mb-4 sm:mb-6">
+                <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-primary-100 rounded-lg flex-shrink-0">
+                  <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-primary-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Import Member Data</h2>
-                  <p className="text-sm text-gray-600">Upload Excel file with member and payment information</p>
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Import Member Data</h2>
+                  <p className="text-xs sm:text-sm text-gray-600">Upload Excel file with member and payment information</p>
                 </div>
               </div>
 
@@ -357,25 +357,25 @@ const AdminPanel = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <p className="text-2xl font-bold text-gray-900">{uploadResult.totalRows}</p>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">
+                      <div className="text-center p-2 sm:p-3 bg-white rounded-lg">
+                        <p className="text-lg sm:text-2xl font-bold text-gray-900">{uploadResult.totalRows}</p>
                         <p className="text-xs text-gray-600">Total Rows</p>
                       </div>
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <p className="text-2xl font-bold text-green-600">{uploadResult.membersAdded}</p>
-                        <p className="text-xs text-gray-600">New Members</p>
+                      <div className="text-center p-2 sm:p-3 bg-white rounded-lg">
+                        <p className="text-lg sm:text-2xl font-bold text-green-600">{uploadResult.membersAdded}</p>
+                        <p className="text-xs text-gray-600">New</p>
                       </div>
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <p className="text-2xl font-bold text-blue-600">{uploadResult.membersUpdated}</p>
+                      <div className="text-center p-2 sm:p-3 bg-white rounded-lg">
+                        <p className="text-lg sm:text-2xl font-bold text-blue-600">{uploadResult.membersUpdated}</p>
                         <p className="text-xs text-gray-600">Updated</p>
                       </div>
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <p className="text-2xl font-bold text-primary-600">{uploadResult.paymentsAdded}</p>
+                      <div className="text-center p-2 sm:p-3 bg-white rounded-lg">
+                        <p className="text-lg sm:text-2xl font-bold text-primary-600">{uploadResult.paymentsAdded}</p>
                         <p className="text-xs text-gray-600">Payments</p>
                       </div>
-                      <div className="text-center p-3 bg-white rounded-lg">
-                        <p className="text-2xl font-bold text-red-600">{uploadResult.errors}</p>
+                      <div className="text-center p-2 sm:p-3 bg-white rounded-lg">
+                        <p className="text-lg sm:text-2xl font-bold text-red-600">{uploadResult.errors}</p>
                         <p className="text-xs text-gray-600">Errors</p>
                       </div>
                     </div>
