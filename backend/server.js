@@ -153,6 +153,10 @@ const startServer = async () => {
   }
 };
 
-startServer();
+// Only start server when run directly, not when imported for testing
+const isMainModule = process.argv[1] && import.meta.url.includes(process.argv[1].replace(/\\/g, '/').split('/').pop());
+if (isMainModule) {
+  startServer();
+}
 
 export default app;
