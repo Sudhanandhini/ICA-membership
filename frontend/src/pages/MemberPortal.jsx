@@ -89,7 +89,7 @@ const MemberPortal = () => {
     try {
       console.log('Calculating payment for member:', selectedMember);
 
-      const response = await fetch('http://localhost:5000/api/payments/calculate', {
+      const response = await fetch(`${API_URL}/payments/calculate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

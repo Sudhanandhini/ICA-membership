@@ -16,13 +16,17 @@ const MAX_SENDS_PER_WINDOW = 3;
 const MAX_VERIFY_ATTEMPTS = 5;
 
 // Create nodemailer transporter
+const EMAIL_PORT = parseInt(process.env.EMAIL_PORT) || 587;
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.EMAIL_PORT) || 587,
-  secure: false,
+  port: EMAIL_PORT,
+  secure: EMAIL_PORT === 465,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD
+  },
+  tls: {
+    rejectUnauthorized: false
   }
 });
 

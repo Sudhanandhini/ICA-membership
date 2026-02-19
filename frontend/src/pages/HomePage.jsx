@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Users, Shield, CreditCard, FileSpreadsheet, ArrowRight } from 'lucide-react';
 
 const HomePage = () => {
@@ -18,8 +19,8 @@ const HomePage = () => {
         {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 max-w-4xl mx-auto">
           {/* Member Portal Card */}
-          <a 
-            href="/member-portal"
+          <Link
+            to="/member-portal"
             className="card hover:shadow-xl transition-all duration-300 group"
           >
             <div className="flex items-center justify-between mb-6">
@@ -48,11 +49,11 @@ const HomePage = () => {
                 <span>Secure Razorpay integration</span>
               </li>
             </ul>
-          </a>
+          </Link>
 
           {/* Admin Panel Card */}
-          <a 
-            href="/admin"
+          <Link
+            to="/admin"
             className="card hover:shadow-xl transition-all duration-300 group bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
           >
             <div className="flex items-center justify-between mb-6">
@@ -81,7 +82,7 @@ const HomePage = () => {
                 <span>System statistics and reports</span>
               </li>
             </ul>
-          </a>
+          </Link>
         </div>
 
         {/* Features Section */}

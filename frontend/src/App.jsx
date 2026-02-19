@@ -6,8 +6,8 @@ import AdminPanel from './pages/AdminPanel';
 
 function App() {
   return (
-    <Router>
-      <Routes>
+    <Router basename="/ica_membership">
+      <Routes >
         <Route path="/" element={<HomePage />} />
         <Route path="/member-portal" element={<MemberPortal />} />
         <Route path="/admin" element={<AdminPanel />} />
